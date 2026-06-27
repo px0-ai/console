@@ -11,59 +11,41 @@ import type { Team } from '@/lib/types'
 export default function EditTeamPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, organizations, teams, isOrgAdmin, refreshTeams } = useAuth()
 
   const [team, setTeam] = useState<Team | null>(null)
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
+  const isAdmin = isOrgAdmin
+
   // Load team details
   useEffect(() => {
-    if (!id) return
+    if (!id || !organizations || organizations.length === 0) return
     setLoading(true)
-    api.teams.listMine()
-      .then(res => {
-        const found = res.teams?.find(t => t.id === id)
-        if (found) {
-          setTeam(found)
-          setName(found.name)
+    const found = teams?.find(t => t.id === id)
+    if (found) {
+      setTeam(found)
+      setName(found.name)
+      setLoading(false)
+    } else {
+      // If not found in user's joined teams, fetch from org teams
+      api.teams.listOrgTeams(organizations[0].id).then(orgTeamsRes => {
+        const foundOrgTeam = orgTeamsRes.teams?.find(t => t.id === id)
+        if (foundOrgTeam) {
+          setTeam(foundOrgTeam)
+          setName(foundOrgTeam.name)
         } else {
-          // If not found in joined teams, fetch from org teams
-          api.orgs.listMine().then(orgsRes => {
-            if (orgsRes.organizations && orgsRes.organizations.length > 0) {
-              api.teams.listOrgTeams(orgsRes.organizations[0].id).then(orgTeamsRes => {
-                const foundOrgTeam = orgTeamsRes.teams?.find(t => t.id === id)
-                if (foundOrgTeam) {
-                  setTeam(foundOrgTeam)
-                  setName(foundOrgTeam.name)
-                } else {
-                  alert('Team not found.')
-                  router.push('/teams')
-                }
-              }).catch(() => router.push('/teams'))
-            } else {
-              router.push('/teams')
-            }
-          }).catch(() => router.push('/teams'))
+          alert('Team not found.')
+          router.push('/teams')
         }
-      })
-      .catch(() => router.push('/teams'))
-      .finally(() => setLoading(false))
-  }, [id])
-
-  // Load admin role status
-  useEffect(() => {
-    api.orgs.listMine()
-      .then(r => {
-        const hasAdmin = r.organizations?.some(o => o.role === 'admin') || user?.is_admin
-        setIsAdmin(!!hasAdmin)
-      })
-      .catch(() => {})
-  }, [user])
+      }).catch(() => router.push('/teams'))
+        .finally(() => setLoading(false))
+    }
+  }, [id, organizations, teams, router])
 
   // Save changes handler
   async function handleSave(e: React.FormEvent) {
@@ -74,6 +56,7 @@ export default function EditTeamPage() {
     try {
       await api.teams.update(id, name)
       alert(`Team name updated successfully to "${name}"!`)
+      await refreshTeams()
       router.push('/teams')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update team name')
@@ -91,6 +74,7 @@ export default function EditTeamPage() {
     try {
       await api.teams.delete(id)
       alert(`Team "${team.name}" has been successfully deleted.`)
+      await refreshTeams()
       router.push('/teams')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete team')

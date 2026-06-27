@@ -26,32 +26,8 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { token, team, setTeam, logout } = useAuth()
-  const [teams, setTeams] = useState<Team[]>([])
-  const [org, setOrg] = useState<OrganizationWithRole | null>(null)
-
-  useEffect(() => {
-    if (!token) return
-    api.teams.listMine()
-      .then(r => {
-        if (r && r.teams) {
-          setTeams(r.teams)
-          if (!team && r.teams.length) setTeam(r.teams[0])
-        }
-      })
-      .catch(() => {})
-  }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!token) return
-    api.orgs.listMine()
-      .then(r => {
-        if (r && r.organizations && r.organizations.length > 0) {
-          setOrg(r.organizations[0])
-        }
-      })
-      .catch(() => {})
-  }, [token])
+  const { teams, organizations, team, setTeam, logout } = useAuth()
+  const org = organizations.length > 0 ? organizations[0] : null
 
   function handleLogout() {
     api.auth.logout().catch(() => {})
@@ -65,10 +41,12 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-          <span className="logo">px<span className="accent">[0]</span></span>
-          <span className="sidebar-subtitle">console</span>
-        </div>
+        <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', cursor: 'pointer' }}>
+            <span className="logo">px<span className="accent">[0]</span></span>
+            <span className="sidebar-subtitle">console</span>
+          </div>
+        </Link>
         {org && (
           <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--txt-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span>{org.name}</span>

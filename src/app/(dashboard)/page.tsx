@@ -8,15 +8,8 @@ import { api } from '@/lib/api'
 import type { Prompt, Team } from '@/lib/types'
 
 export default function DashboardPage() {
-  const { user, team } = useAuth()
+  const { user, team, teams } = useAuth()
   const [promptCount, setPromptCount] = useState<number | null>(null)
-  const [teams, setTeams] = useState<Team[]>([])
-
-  useEffect(() => {
-    api.teams.listMine()
-      .then(r => setTeams(r.teams ?? []))
-      .catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (!team) return

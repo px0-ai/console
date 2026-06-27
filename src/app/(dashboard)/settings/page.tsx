@@ -10,7 +10,8 @@ export default function SettingsPage() {
   // Verification state
   const [verificationCode, setVerificationCode] = useState('')
   const [verifying, setVerifying] = useState(false)
-  const [resending, setResending] = useState(false)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
   const [verifyMsg, setVerifyMsg] = useState('')
   const [verifyMsgType, setVerifyMsgType] = useState<'success' | 'error' | ''>('')
 
@@ -37,20 +38,21 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleResendCode() {
+  async function handleSendCode() {
     if (!user) return
-    setResending(true)
+    setSendingCode(true)
     setVerifyMsg('')
     setVerifyMsgType('')
     try {
       await api.auth.triggerVerification(user.email)
       setVerifyMsg('Verification code sent to your email.')
       setVerifyMsgType('success')
+      setCodeSent(true)
     } catch (err) {
       setVerifyMsg(err instanceof Error ? err.message : 'Failed to send code')
       setVerifyMsgType('error')
     } finally {
-      setResending(false)
+      setSendingCode(false)
     }
   }
 
@@ -83,30 +85,49 @@ export default function SettingsPage() {
 
         {!user?.is_verified && user?.email && (
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 16 }}>
-            <p style={{ fontSize: 13, marginBottom: 12, color: 'var(--txt-muted)' }}>
-              Your email is unverified. Please enter the verification code sent to your inbox.
-            </p>
-            <form onSubmit={handleVerifyEmail} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <div className="form-field" style={{ flex: 1, marginBottom: 0 }}>
-                <label className="form-label" htmlFor="verify-code">Verification Code</label>
-                <input
-                  id="verify-code"
-                  className="input"
-                  value={verificationCode}
-                  onChange={e => setVerificationCode(e.target.value)}
-                  placeholder="123456"
-                  required
-                />
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" type="submit" disabled={verifying || !verificationCode.trim()}>
-                  {verifying ? 'Verifying...' : 'Verify'}
-                </button>
-                <button className="btn btn-ghost" type="button" onClick={handleResendCode} disabled={resending}>
-                  {resending ? 'Sending...' : 'Resend'}
+            {!codeSent ? (
+              <div>
+                <p style={{ fontSize: 13, marginBottom: 16, color: 'var(--txt-muted)' }}>
+                  Your email is unverified. Click the button below to generate and send a verification code to your inbox.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={sendingCode}
+                >
+                  {sendingCode ? 'Sending Code...' : 'Send Verification Code'}
                 </button>
               </div>
-            </form>
+            ) : (
+              <div>
+                <p style={{ fontSize: 13, marginBottom: 12, color: 'var(--txt-muted)' }}>
+                  Verification code has been sent to your email. Please enter it below.
+                </p>
+                <form onSubmit={handleVerifyEmail} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                  <div className="form-field" style={{ flex: 1, marginBottom: 0 }}>
+                    <label className="form-label" htmlFor="verify-code">Verification Code</label>
+                    <input
+                      id="verify-code"
+                      className="input"
+                      value={verificationCode}
+                      onChange={e => setVerificationCode(e.target.value)}
+                      placeholder="123456"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" type="submit" disabled={verifying || !verificationCode.trim()}>
+                      {verifying ? 'Verifying...' : 'Verify'}
+                    </button>
+                    <button className="btn btn-ghost" type="button" onClick={handleSendCode} disabled={sendingCode}>
+                      {sendingCode ? 'Resending...' : 'Resend'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
 
             {verifyMsg && (
               <p className="inline-error" style={{ marginTop: 8, color: verifyMsgType === 'success' ? '#4ade80' : '#ef4444' }}>

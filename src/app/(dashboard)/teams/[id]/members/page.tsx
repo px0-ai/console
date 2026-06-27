@@ -17,12 +17,13 @@ function fmtDate(s: string) {
 export default function TeamMembersPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, organizations, teams, isOrgAdmin } = useAuth()
 
   const [teamName, setTeamName] = useState('Loading...')
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
+
+  const isAdmin = isOrgAdmin
 
   // Pagination State
   const [page, setPage] = useState(1)
@@ -33,42 +34,22 @@ export default function TeamMembersPage() {
 
   // Load team name and verify access
   useEffect(() => {
-    if (!id) return
-    api.teams.listMine()
-      .then(res => {
-        const found = res.teams?.find(t => t.id === id)
-        if (found) {
-          setTeamName(found.name)
+    if (!id || !organizations || organizations.length === 0) return
+    const found = teams?.find(t => t.id === id)
+    if (found) {
+      setTeamName(found.name)
+    } else {
+      // If not found in user's joined teams, check if it exists in organization
+      api.teams.listOrgTeams(organizations[0].id).then(orgTeamsRes => {
+        const foundOrgTeam = orgTeamsRes.teams?.find(t => t.id === id)
+        if (foundOrgTeam) {
+          setTeamName(foundOrgTeam.name)
         } else {
-          // If not found in user's joined teams, check if it exists in organization
-          api.orgs.listMine().then(orgsRes => {
-            if (orgsRes.organizations && orgsRes.organizations.length > 0) {
-              api.teams.listOrgTeams(orgsRes.organizations[0].id).then(orgTeamsRes => {
-                const foundOrgTeam = orgTeamsRes.teams?.find(t => t.id === id)
-                if (foundOrgTeam) {
-                  setTeamName(foundOrgTeam.name)
-                } else {
-                  setTeamName('Team')
-                }
-              }).catch(() => setTeamName('Team'))
-            } else {
-              setTeamName('Team')
-            }
-          }).catch(() => setTeamName('Team'))
+          setTeamName('Team')
         }
-      })
-      .catch(() => setTeamName('Team'))
-  }, [id])
-
-  // Load admin role status
-  useEffect(() => {
-    api.orgs.listMine()
-      .then(r => {
-        const hasAdmin = r.organizations?.some(o => o.role === 'admin') || user?.is_admin
-        setIsAdmin(!!hasAdmin)
-      })
-      .catch(() => {})
-  }, [user])
+      }).catch(() => setTeamName('Team'))
+    }
+  }, [id, organizations, teams])
 
   // Fetch team members list
   function loadMembers() {
@@ -155,7 +136,7 @@ export default function TeamMembersPage() {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Joined</th>
-                  {isAdmin && <th style={{ width: 48, textAlign: 'right' }}>Action</th>}
+                  {isAdmin && <th style={{ width: 100, textAlign: 'right' }}>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -189,11 +170,12 @@ export default function TeamMembersPage() {
                         <td style={{ textAlign: 'right' }}>
                           {m.user_id !== user?.id && (
                             <button
-                              className="btn-icon danger"
+                              className="btn"
+                              style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '4px 10px', fontSize: '11px', height: '26px', borderRadius: 'var(--r)' }}
                               onClick={() => handleRemove(m.user_id, m.email)}
-                              title="Remove member"
+                              title="Remove member from team"
                             >
-                              <UserX size={13} />
+                              Remove
                             </button>
                           )}
                         </td>

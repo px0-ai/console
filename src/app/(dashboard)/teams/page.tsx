@@ -83,9 +83,7 @@ function TeamRow({
 }
 
 export default function TeamsPage() {
-  const { user } = useAuth()
-  const [orgs, setOrgs] = useState<OrganizationWithRole[]>([])
-  const [myTeams, setMyTeams] = useState<Team[]>([])
+  const { user, organizations: orgs, teams: myTeams, isOrgAdmin, refreshTeams } = useAuth()
   const [allOrgTeams, setAllOrgTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -105,21 +103,15 @@ export default function TeamsPage() {
   const [createTeamErr, setCreateTeamErr] = useState('')
 
   async function loadData() {
+    if (!orgs || orgs.length === 0) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const [orgsRes, myTeamsRes] = await Promise.all([
-        api.orgs.listMine(),
-        api.teams.listMine(),
-      ])
-
-      setOrgs(orgsRes?.organizations ?? [])
-      setMyTeams(myTeamsRes?.teams ?? [])
-
-      if (orgsRes?.organizations && orgsRes.organizations.length > 0) {
-        // Fetch teams for the first organization
-        const orgTeamsRes = await api.teams.listOrgTeams(orgsRes.organizations[0].id)
-        setAllOrgTeams(orgTeamsRes?.teams ?? [])
-      }
+      // Fetch teams for the first organization
+      const orgTeamsRes = await api.teams.listOrgTeams(orgs[0].id)
+      setAllOrgTeams(orgTeamsRes?.teams ?? [])
     } catch (err) {
       console.error('Failed to load data', err)
     } finally {
@@ -129,10 +121,7 @@ export default function TeamsPage() {
 
   useEffect(() => {
     loadData()
-  }, [])
-
-  // Check if user is admin in any organization or globally
-  const isOrgAdmin = orgs.some(o => o.role === 'admin') || user?.is_admin
+  }, [orgs])
 
   // Client-side pagination
   const totalTeams = allOrgTeams.length
@@ -168,7 +157,9 @@ export default function TeamsPage() {
       await api.teams.create(orgs[0].id, newTeamName)
       setNewTeamName('')
       setShowCreateTeam(false)
-      // Reload teams
+      // Refresh teams in context so other components (e.g. Sidebar) update
+      await refreshTeams()
+      // Reload organization teams list
       await loadData()
     } catch (err) {
       setCreateTeamErr(err instanceof Error ? err.message : 'Failed to create team')
