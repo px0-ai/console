@@ -1,6 +1,6 @@
 import type {
   User, Team, Prompt, PromptVersion, APIKey, APIKeyCreated,
-  RenderResponse, TeamMember, Organization,
+  RenderResponse, TeamMember, Organization, OrganizationWithRole, TeamJoinRequest,
 } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -82,10 +82,13 @@ export const api = {
 
   teams: {
     listMine: () => get<{ teams: Team[] }>('/v1/me/teams'),
+    listOrgTeams: (orgID: string) => get<{ teams: Team[] }>(`/v1/orgs/${orgID}/teams`),
     create: (orgID: string, name: string) =>
       post<{ team: Team }>(`/v1/orgs/${orgID}/teams`, { name }),
     update: (id: string, name: string) =>
       put<{ team: Team }>(`/v1/teams/${id}`, { name }),
+    delete: (id: string) =>
+      del<void>(`/v1/teams/${id}`),
     listMembers: (id: string, page = 1) =>
       get<{ members: TeamMember[]; page: number; limit: number; total: number }>(
         `/v1/teams/${id}/members?page=${page}`,
@@ -96,9 +99,12 @@ export const api = {
       del<void>(`/v1/teams/${id}/members/${userID}`),
     updateMemberRole: (id: string, userID: string, role: TeamMember['role']) =>
       put<{ message: string }>(`/v1/teams/${id}/members/${userID}/role`, { role }),
+    createJoinRequest: (id: string, body?: { justification?: string }) =>
+      post<TeamJoinRequest>(`/v1/teams/${id}/join-requests`, body),
   },
 
   orgs: {
+    listMine: () => get<{ organizations: OrganizationWithRole[] }>('/v1/me/orgs'),
     create: (name: string) =>
       post<{ org: Organization }>('/v1/orgs', { name }),
     update: (id: string, name: string) =>

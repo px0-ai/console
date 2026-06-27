@@ -12,6 +12,22 @@ export interface Organization {
   created_at: string
 }
 
+export interface OrganizationWithRole {
+  id: string
+  name: string
+  role: 'admin' | 'member' | string
+  created_at: string
+}
+
+export interface TeamJoinRequest {
+  id: string
+  team_id: string
+  user_id: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  updated_at: string
+}
+
 export interface Team {
   id: string
   org_id: string

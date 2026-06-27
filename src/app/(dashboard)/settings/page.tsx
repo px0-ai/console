@@ -5,14 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 
 export default function SettingsPage() {
-  const { token, user, team, login } = useAuth()
-  const [teamName, setTeamName] = useState(team?.name ?? '')
-  const [savingTeam, setSavingTeam] = useState(false)
-  const [teamMsg, setTeamMsg] = useState('')
-
-  const [orgName, setOrgName] = useState('')
-  const [savingOrg, setSavingOrg] = useState(false)
-  const [orgMsg, setOrgMsg] = useState('')
+  const { token, user, login } = useAuth()
 
   // Verification state
   const [verificationCode, setVerificationCode] = useState('')
@@ -61,36 +54,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleUpdateTeam(e: React.FormEvent) {
-    e.preventDefault()
-    if (!team) return
-    setSavingTeam(true)
-    setTeamMsg('')
-    try {
-      await api.teams.update(team.id, teamName)
-      setTeamMsg('Team name updated.')
-    } catch (err) {
-      setTeamMsg(err instanceof Error ? err.message : 'Update failed')
-    } finally {
-      setSavingTeam(false)
-    }
-  }
-
-  async function handleUpdateOrg(e: React.FormEvent) {
-    e.preventDefault()
-    if (!team) return
-    setSavingOrg(true)
-    setOrgMsg('')
-    try {
-      await api.orgs.update(team.org_id, orgName)
-      setOrgMsg('Organization name updated.')
-    } catch (err) {
-      setOrgMsg(err instanceof Error ? err.message : 'Update failed')
-    } finally {
-      setSavingOrg(false)
-    }
-  }
-
   return (
     <>
       <div className="page-header">
@@ -99,7 +62,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Account */}
-      <div className="card" style={{ maxWidth: '520px', marginBottom: 16 }}>
+      <div className="card" style={{ maxWidth: '520px' }}>
         <p className="card-label">Account</p>
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: !user?.is_verified ? 16 : 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
@@ -153,76 +116,6 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-
-      {/* Team */}
-      {team && (
-        <div className="card" style={{ maxWidth: '520px', marginBottom: 16 }}>
-          <p className="card-label">Team</p>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span className="td-mono" style={{ color: 'var(--muted)' }}>ID</span>
-              <span className="td-mono">{team.id}</span>
-            </div>
-          </div>
-
-          {user?.is_admin && (
-            <form onSubmit={handleUpdateTeam} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <div className="form-field" style={{ flex: 1 }}>
-                <label className="form-label">Name</label>
-                <input
-                  className="input"
-                  value={teamName}
-                  onChange={e => setTeamName(e.target.value)}
-                  placeholder="Team name"
-                />
-              </div>
-              <button className="btn btn-primary" type="submit" disabled={savingTeam || !teamName.trim()}>
-                {savingTeam ? 'Saving...' : 'Save'}
-              </button>
-            </form>
-          )}
-
-          {teamMsg && (
-            <p className="inline-error" style={{ marginTop: 8, color: teamMsg.includes('updated') ? '#4ade80' : undefined }}>
-              {teamMsg}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Organization (admin only) */}
-      {user?.is_admin && team && (
-        <div className="card" style={{ maxWidth: '520px' }}>
-          <p className="card-label">Organization</p>
-          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span className="td-mono" style={{ color: 'var(--muted)' }}>ID</span>
-              <span className="td-mono">{team.org_id}</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleUpdateOrg} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div className="form-field" style={{ flex: 1 }}>
-              <label className="form-label">Name</label>
-              <input
-                className="input"
-                value={orgName}
-                onChange={e => setOrgName(e.target.value)}
-                placeholder="Organization name"
-              />
-            </div>
-            <button className="btn btn-primary" type="submit" disabled={savingOrg || !orgName.trim()}>
-              {savingOrg ? 'Saving...' : 'Save'}
-            </button>
-          </form>
-
-          {orgMsg && (
-            <p className="inline-error" style={{ marginTop: 8, color: orgMsg.includes('updated') ? '#4ade80' : undefined }}>
-              {orgMsg}
-            </p>
-          )}
-        </div>
-      )}
     </>
   )
 }
