@@ -160,7 +160,27 @@ export default function OrgSettingsPage() {
 
       {activeTab === 'settings' ? (
         <div className="table-wrap" style={{ padding: '24px' }}>
-          <form onSubmit={handleSave} style={{ maxWidth: '500px' }}>
+          <form onSubmit={handleSave} style={{ maxWidth: '480px' }}>
+            {error && (
+              <div className="auth-error" style={{ marginBottom: '20px' }}>
+                {error}
+              </div>
+            )}
+            {successMsg && (
+              <div className="auth-success" style={{
+                color: '#4ade80',
+                backgroundColor: 'rgba(74, 222, 128, 0.08)',
+                border: '1px solid rgba(74, 222, 128, 0.2)',
+                padding: '10px 12px',
+                borderRadius: 'var(--r)',
+                fontSize: '13px',
+                fontFamily: 'var(--font-mono), monospace',
+                marginBottom: '20px'
+              }}>
+                {successMsg}
+              </div>
+            )}
+
             <div className="form-field">
               <label className="form-label" htmlFor="org-name">Organization Name</label>
               <input
@@ -174,19 +194,32 @@ export default function OrgSettingsPage() {
               />
             </div>
 
-            {error && <p className="inline-error" style={{ color: '#ef4444', fontSize: '13px', marginTop: '-8px', marginBottom: '16px' }}>{error}</p>}
-            {successMsg && <p style={{ color: '#22c55e', fontSize: '13px', marginTop: '-8px', marginBottom: '16px' }}>{successMsg}</p>}
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={!isOrgAdmin || saving || !newName.trim()}
-            >
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-
-            {!isOrgAdmin && (
-              <p style={{ fontSize: '12px', color: 'var(--txt-muted)', marginTop: '12px' }}>
+            {isOrgAdmin ? (
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={saving || !newName.trim() || newName === orgName}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                {newName !== orgName && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      setNewName(orgName)
+                      setError('')
+                      setSuccessMsg('')
+                    }}
+                    style={{ height: '34px', fontSize: '13px' }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p style={{ marginTop: '16px', fontSize: '12px', color: 'var(--txt-muted)', fontFamily: 'var(--font-sans)' }}>
                 * You must be an Organization Admin to update organization settings.
               </p>
             )}
