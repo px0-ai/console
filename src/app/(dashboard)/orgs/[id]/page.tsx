@@ -32,7 +32,7 @@ export default function OrgSettingsPage() {
 
   // Find organization from context to ensure the user actually belongs to it
   const org = organizations?.find(o => o.id?.toLowerCase() === id?.toLowerCase())
-  const isOrgAdmin = authIsOrgAdmin || org?.role?.toLowerCase() === 'admin'
+  const isOrgAdmin = authIsOrgAdmin || org?.role?.toLowerCase() === 'admin' || user?.is_admin || organizations?.some(o => o.id?.toLowerCase() === id?.toLowerCase() && o.role?.toLowerCase() === 'admin')
 
   // Initialize org details
   useEffect(() => {
@@ -294,7 +294,7 @@ export default function OrgSettingsPage() {
                         <td className="td-mono">{fmtDate(p.created_at)}</td>
                         {isOrgAdmin && (
                           <td style={{ textAlign: 'right' }}>
-                            {p.id !== user?.id && (
+                            {p.email?.toLowerCase() !== user?.email?.toLowerCase() && (
                               <button
                                 className="btn"
                                 style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '4px 10px', fontSize: '11px', height: '26px', borderRadius: 'var(--r)' }}
