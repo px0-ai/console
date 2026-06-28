@@ -47,7 +47,19 @@ export function Sidebar() {
         </Link>
         {org && (
           <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--txt-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>{org.name}</span>
+            <Link
+              href={`/orgs/${org.id}`}
+              style={{
+                color: 'var(--txt-muted)',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--txt)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--txt-muted)')}
+            >
+              {org.name}
+            </Link>
             <span style={{ color: 'var(--dim)' }}>·</span>
             <span style={{ textTransform: 'capitalize' }}>{org.role}</span>
           </div>

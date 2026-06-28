@@ -109,6 +109,10 @@ export const api = {
       post<{ org: Organization }>('/v1/orgs', { name }),
     update: (id: string, name: string) =>
       put<{ org: Organization }>(`/v1/orgs/${id}`, { name }),
+    listPeople: (orgID: string, page = 1, limit = 10) =>
+      get<{ people: User[]; page: number; limit: number; total: number }>(
+        `/v1/orgs/${orgID}/people?page=${page}&limit=${limit}`,
+      ),
   },
 
   prompts: {
