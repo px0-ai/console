@@ -116,7 +116,6 @@ export default function EditTeamPage() {
       router.push('/teams')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete team')
-    } finally {
       setDeleting(false)
     }
   }
