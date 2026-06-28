@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
-import type { Team, OrganizationWithRole } from '@/lib/types'
+import type { Team } from '@/lib/types'
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -15,66 +15,59 @@ function fmtDate(s: string) {
 function TeamRow({
   team,
   isMember,
+  canEdit,
   onRequestJoin,
 }: {
   team: Team
   isMember: boolean
+  canEdit: boolean
   onRequestJoin: (team: Team) => void
 }) {
   return (
     <tr>
       <td style={{ fontWeight: 600 }}>
-        {isMember ? (
-          <Link
-            href={`/teams/${team.id}`}
-            style={{ color: 'var(--txt)', textDecoration: 'none' }}
-            className="hover-underline"
-          >
-            {team.name}
-          </Link>
-        ) : (
-          <span style={{ color: 'var(--txt)' }}>{team.name}</span>
-        )}
+        <Link
+          href={`/teams/${team.id}`}
+          style={{ color: 'var(--txt)', textDecoration: 'none' }}
+          className="hover-underline"
+        >
+          {team.name}
+        </Link>
       </td>
       <td>
         {isMember ? (
-          <span className="status-badge" style={{ borderColor: '#22c55e', color: '#22c55e', background: 'transparent', padding: '1px 6px', fontSize: '11px' }}>
+          <span className="status-badge" style={{ borderColor: '#22c55e', color: '#22c55e', background: 'transparent', padding: '1px 6px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Check size={11} strokeWidth={3} />
             Member
           </span>
         ) : (
-          <span className="status-badge" style={{ borderColor: 'var(--dim)', color: 'var(--dim)', background: 'transparent', padding: '1px 6px', fontSize: '11px' }}>
-            Not Member
-          </span>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '2px 8px', height: 'auto', fontSize: '11px', borderRadius: '4px' }}
+            onClick={() => onRequestJoin(team)}
+          >
+            Request to Join
+          </button>
         )}
       </td>
       <td className="td-mono">{fmtDate(team.created_at)}</td>
       <td style={{ textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-          {isMember ? (
-            <>
-              <Link
-                href={`/teams/${team.id}/members`}
-                className="btn btn-ghost"
-                style={{ padding: '4px 10px', height: 'auto', fontSize: '12px' }}
-              >
-                Show Members
-              </Link>
-              <Link
-                href={`/teams/${team.id}`}
-                className="btn btn-ghost"
-                style={{ padding: '4px 10px', height: 'auto', fontSize: '12px', border: '1px solid var(--bdr-hi)' }}
-              >
-                Edit
-              </Link>
-            </>
-          ) : (
-            <button
-              className="btn btn-primary"
-              style={{ padding: '4px 10px', height: 'auto', fontSize: '12px' }}
-              onClick={() => onRequestJoin(team)}
+          <Link
+            href={`/teams/${team.id}/members`}
+            className="btn btn-ghost"
+            style={{ padding: '4px 10px', height: 'auto', fontSize: '12px' }}
+          >
+            Show Members
+          </Link>
+          {canEdit && (
+            <Link
+              href={`/teams/${team.id}`}
+              className="btn btn-ghost"
+              style={{ padding: '4px 10px', height: 'auto', fontSize: '12px', border: '1px solid var(--bdr-hi)' }}
             >
-              Request to Join
-            </button>
+              Edit
+            </Link>
           )}
         </div>
       </td>
@@ -86,6 +79,7 @@ export default function TeamsPage() {
   const { user, organizations: orgs, teams: myTeams, isOrgAdmin, refreshTeams } = useAuth()
   const [allOrgTeams, setAllOrgTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
+  const [teamRoles, setTeamRoles] = useState<Record<string, string>>({})
 
   // Pagination State
   const [page, setPage] = useState(1)
@@ -102,7 +96,7 @@ export default function TeamsPage() {
   const [creatingTeam, setCreatingTeam] = useState(false)
   const [createTeamErr, setCreateTeamErr] = useState('')
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     if (!orgs || orgs.length === 0) {
       setLoading(false)
       return
@@ -117,17 +111,41 @@ export default function TeamsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [orgs])
 
   useEffect(() => {
     loadData()
-  }, [orgs])
+  }, [loadData])
 
   // Client-side pagination
   const totalTeams = allOrgTeams.length
   const totalPages = Math.ceil(totalTeams / limit)
   const startIndex = (page - 1) * limit
   const paginatedTeams = allOrgTeams.slice(startIndex, startIndex + limit)
+
+  // Fetch and cache user roles for paginated teams
+  useEffect(() => {
+    if (!user || paginatedTeams.length === 0) return
+
+    paginatedTeams.forEach(t => {
+      if (teamRoles[t.id] !== undefined) return
+
+      api.teams.listMembers(t.id)
+        .then(res => {
+          const me = res.members?.find(m => m.user_id === user.id)
+          setTeamRoles(prev => ({
+            ...prev,
+            [t.id]: me ? me.role : 'none'
+          }))
+        })
+        .catch(() => {
+          setTeamRoles(prev => ({
+            ...prev,
+            [t.id]: 'none'
+          }))
+        })
+    })
+  }, [paginatedTeams, user, teamRoles])
 
   // Request to Join handler
   async function handleJoinSubmit(e: React.FormEvent) {
@@ -209,11 +227,14 @@ export default function TeamsPage() {
                 ) : (
                   paginatedTeams.map(t => {
                     const isMember = myTeams.some(mt => mt.id === t.id)
+                    const role = teamRoles[t.id]
+                    const canEdit = isOrgAdmin || role === 'admin' || role === 'editor'
                     return (
                       <TeamRow
                         key={t.id}
                         team={t}
                         isMember={isMember}
+                        canEdit={canEdit}
                         onRequestJoin={(team) => {
                           setJoinRequestTeam(team)
                           setJustification('')

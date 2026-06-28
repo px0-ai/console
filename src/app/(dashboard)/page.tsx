@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { FileText, Key, Users } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
-import type { Prompt, Team } from '@/lib/types'
 
 export default function DashboardPage() {
   const { user, team, teams } = useAuth()

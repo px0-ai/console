@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   FileText,
@@ -14,7 +13,6 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
 import { api } from '@/lib/api'
-import type { Team, OrganizationWithRole } from '@/lib/types'
 
 const NAV = [
   { label: 'Dashboard', href: '/',         icon: LayoutDashboard },
@@ -26,7 +24,7 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { teams, organizations, team, setTeam, logout } = useAuth()
+  const { organizations, logout } = useAuth()
   const org = organizations.length > 0 ? organizations[0] : null
 
   function handleLogout() {

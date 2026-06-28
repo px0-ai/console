@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Play, Save, Upload } from 'lucide-react'
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Prompt, PromptVersion } from '@/lib/types'
 

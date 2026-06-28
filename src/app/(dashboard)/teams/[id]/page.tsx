@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
-import type { Team } from '@/lib/types'
+import type { Team, TeamMember } from '@/lib/types'
 
 export default function EditTeamPage() {
   const { id } = useParams<{ id: string }>()
@@ -19,33 +19,70 @@ export default function EditTeamPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+  const [userRole, setUserRole] = useState<TeamMember['role'] | null>(null)
 
-  const isAdmin = isOrgAdmin
+  const canEdit = isOrgAdmin || userRole === 'admin' || userRole === 'editor'
+  const canDelete = isOrgAdmin || userRole === 'admin'
 
-  // Load team details
+  // Load team details and current user role
   useEffect(() => {
-    if (!id || !organizations || organizations.length === 0) return
+    if (!id || !organizations || organizations.length === 0 || !user) return
+    
+    let isMounted = true
     setLoading(true)
-    const found = teams?.find(t => t.id === id)
-    if (found) {
-      setTeam(found)
-      setName(found.name)
-      setLoading(false)
-    } else {
-      // If not found in user's joined teams, fetch from org teams
-      api.teams.listOrgTeams(organizations[0].id).then(orgTeamsRes => {
-        const foundOrgTeam = orgTeamsRes.teams?.find(t => t.id === id)
-        if (foundOrgTeam) {
-          setTeam(foundOrgTeam)
-          setName(foundOrgTeam.name)
-        } else {
-          alert('Team not found.')
+    const currentUserID = user.id
+
+    async function loadData() {
+      try {
+        // 1. Fetch team details
+        let foundTeam: Team | undefined = teams?.find(t => t.id === id)
+        if (!foundTeam) {
+          const orgTeamsRes = await api.teams.listOrgTeams(organizations[0].id)
+          foundTeam = orgTeamsRes.teams?.find(t => t.id === id)
+        }
+
+        if (!foundTeam) {
+          if (isMounted) {
+            alert('Team not found.')
+            router.push('/teams')
+          }
+          return
+        }
+
+        if (isMounted) {
+          setTeam(foundTeam)
+          setName(foundTeam.name)
+        }
+
+        // 2. Fetch team members to determine current user's role in this team
+        try {
+          const membersRes = await api.teams.listMembers(id)
+          const me = membersRes.members?.find(m => m.user_id === currentUserID)
+          if (me && isMounted) {
+            setUserRole(me.role)
+          }
+        } catch (err) {
+          console.error('Failed to load team members for role check:', err)
+        }
+
+      } catch (err) {
+        console.error('Failed to load team details:', err)
+        if (isMounted) {
           router.push('/teams')
         }
-      }).catch(() => router.push('/teams'))
-        .finally(() => setLoading(false))
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
     }
-  }, [id, organizations, teams, router])
+
+    loadData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [id, organizations, teams, user, router])
 
   // Save changes handler
   async function handleSave(e: React.FormEvent) {
@@ -121,13 +158,13 @@ export default function EditTeamPage() {
               className="input"
               value={name}
               onChange={e => setName(e.target.value)}
-              disabled={!isAdmin || saving || deleting}
+              disabled={!canEdit || saving || deleting}
               required
               autoFocus
             />
           </div>
 
-          {isAdmin ? (
+          {canEdit ? (
             <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
               <button
                 type="submit"
@@ -142,12 +179,12 @@ export default function EditTeamPage() {
             </div>
           ) : (
             <p style={{ marginTop: '16px', fontSize: '12px', color: 'var(--dim)', fontFamily: 'var(--font-mono)' }}>
-              * Only organization administrators can modify or delete teams.
+              * Only team editors or administrators can modify this team.
             </p>
           )}
         </form>
 
-        {isAdmin && (
+        {canDelete && (
           <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: '1px solid var(--bdr)' }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#ef4444', marginBottom: '8px' }}>Danger Zone</h3>
             <p style={{ fontSize: '13px', color: 'var(--txt-muted)', marginBottom: '16px' }}>

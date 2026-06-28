@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, UserX } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import type { TeamMember } from '@/lib/types'
@@ -52,7 +52,7 @@ export default function TeamMembersPage() {
   }, [id, organizations, teams])
 
   // Fetch team members list
-  function loadMembers() {
+  const loadMembers = useCallback(() => {
     if (!id) return
     setLoading(true)
     api.teams.listMembers(id, page)
@@ -66,11 +66,11 @@ export default function TeamMembersPage() {
         router.push('/teams')
       })
       .finally(() => setLoading(false))
-  }
+  }, [id, page, router])
 
   useEffect(() => {
     loadMembers()
-  }, [id, page])
+  }, [loadMembers])
 
   // Handle changing user role inside team
   async function handleRoleChange(userID: string, role: TeamMember['role']) {
