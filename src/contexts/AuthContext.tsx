@@ -7,7 +7,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
-import type { User, Team, OrganizationWithRole } from '@/lib/types'
+import type { User, Team, OrganizationWithRole, TeamMember } from '@/lib/types'
 import { api } from '@/lib/api'
 
 interface AuthCtx {
@@ -20,6 +20,7 @@ interface AuthCtx {
   isLoadingOrgs: boolean
   isLoadingTeams: boolean
   isOrgAdmin: boolean
+  teamRole: TeamMember['role'] | null
   login: (token: string, user: User) => void
   logout: () => void
   setTeam: (team: Team) => void
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthCtx>({
   isLoadingOrgs: false,
   isLoadingTeams: false,
   isOrgAdmin: false,
+  teamRole: null,
   login: () => {},
   logout: () => {},
   setTeam: () => {},
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(false)
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const [teamRole, setTeamRole] = useState<TeamMember['role'] | null>(null)
 
   useEffect(() => {
     const t = localStorage.getItem('px0-token')
@@ -139,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setUser(null)
     setTeamState(null)
+    setTeamRole(null)
     setOrganizations([])
     setTeams([])
   }
@@ -147,6 +151,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTeamState(tm)
     localStorage.setItem('px0-team', JSON.stringify(tm))
   }
+
+  useEffect(() => {
+    if (!team || !user) {
+      setTeamRole(null)
+      return
+    }
+    let isMounted = true
+    api.teams.listMembers(team.id)
+      .then(res => {
+        const me = res.members?.find(m => m.user_id === user.id)
+        if (isMounted) {
+          setTeamRole(me ? me.role : null)
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load team role:', err)
+        if (isMounted) {
+          setTeamRole(null)
+        }
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [team, user])
 
   const isOrgAdmin = user?.is_admin || organizations.some(o => o.role === 'admin')
 
@@ -162,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoadingOrgs,
         isLoadingTeams,
         isOrgAdmin,
+        teamRole,
         login,
         logout,
         setTeam,

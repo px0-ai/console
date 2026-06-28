@@ -12,7 +12,7 @@ function fmtDate(s: string) {
 }
 
 export default function PromptsPage() {
-  const { team } = useAuth()
+  const { team, isOrgAdmin, teamRole } = useAuth()
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [loading, setLoading] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
@@ -20,6 +20,8 @@ export default function PromptsPage() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState('')
+
+  const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   async function load() {
     if (!team) return
@@ -35,7 +37,7 @@ export default function PromptsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
-    if (!team) return
+    if (!team || !canEdit) return
     setCreateErr('')
     setCreating(true)
     try {
@@ -52,6 +54,10 @@ export default function PromptsPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!canEdit) {
+      alert('You do not have permission to delete prompts.')
+      return
+    }
     if (!confirm('Delete this prompt and all its versions? This cannot be undone.')) return
     try {
       await api.prompts.delete(id)
@@ -81,10 +87,12 @@ export default function PromptsPage() {
         <div className="table-wrap">
           <div className="table-toolbar">
             <span className="table-title">All Prompts</span>
-            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-              <Plus size={13} />
-              New Prompt
-            </button>
+            {canEdit && (
+              <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+                <Plus size={13} />
+                New Prompt
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -97,12 +105,12 @@ export default function PromptsPage() {
                   <th>Description</th>
                   <th>Updated</th>
                   <th>Created</th>
-                  <th style={{ width: 48 }}></th>
+                  {canEdit && <th style={{ width: 48 }}></th>}
                 </tr>
               </thead>
               <tbody>
                 {prompts.length === 0 ? (
-                  <tr><td colSpan={5} className="table-empty">No prompts yet. Create your first one.</td></tr>
+                  <tr><td colSpan={canEdit ? 5 : 4} className="table-empty">No prompts yet. Create your first one.</td></tr>
                 ) : (
                   prompts.map(p => (
                     <tr key={p.id}>
@@ -117,15 +125,17 @@ export default function PromptsPage() {
                       <td className="td-mono">{p.description || <span style={{ color: 'var(--dim)' }}>—</span>}</td>
                       <td className="td-mono">{fmtDate(p.updated_at)}</td>
                       <td className="td-mono">{fmtDate(p.created_at)}</td>
-                      <td>
-                        <button
-                          className="btn-icon danger"
-                          onClick={() => handleDelete(p.id)}
-                          title="Delete prompt"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                      {canEdit && (
+                        <td>
+                          <button
+                            className="btn-icon danger"
+                            onClick={() => handleDelete(p.id)}
+                            title="Delete prompt"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}
@@ -135,7 +145,7 @@ export default function PromptsPage() {
         </div>
       )}
 
-      {showCreate && (
+      {showCreate && canEdit && (
         <Modal
           title="New Prompt"
           onClose={() => { setShowCreate(false); setCreateErr('') }}

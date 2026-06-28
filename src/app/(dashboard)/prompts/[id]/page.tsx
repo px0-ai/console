@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, ChevronRight } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -16,6 +17,7 @@ function fmtDate(s: string) {
 export default function PromptDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { isOrgAdmin, teamRole } = useAuth()
 
   const [prompt, setPrompt] = useState<Prompt | null>(null)
   const [versions, setVersions] = useState<PromptVersion[]>([])
@@ -25,6 +27,8 @@ export default function PromptDetailPage() {
   const [newTemplate, setNewTemplate] = useState('')
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState('')
+
+  const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   useEffect(() => {
     Promise.all([
@@ -41,6 +45,7 @@ export default function PromptDetailPage() {
 
   async function handleCreateVersion(e: React.FormEvent) {
     e.preventDefault()
+    if (!canEdit) return
     setCreateErr('')
     setCreating(true)
     try {
@@ -73,10 +78,12 @@ export default function PromptDetailPage() {
             {prompt.id} · updated {fmtDate(prompt.updated_at)}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
-          <Plus size={13} />
-          New Version
-        </button>
+        {canEdit && (
+          <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
+            <Plus size={13} />
+            New Version
+          </button>
+        )}
       </div>
 
       <div className="table-wrap">
@@ -123,7 +130,7 @@ export default function PromptDetailPage() {
         </table>
       </div>
 
-      {showNewVersion && (
+      {showNewVersion && canEdit && (
         <Modal
           title="New Version"
           onClose={() => { setShowNewVersion(false); setCreateErr('') }}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronRight, Play, Save, Upload } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Prompt, PromptVersion } from '@/lib/types'
@@ -12,6 +13,7 @@ export default function VersionEditorPage() {
   const { id, version } = useParams<{ id: string; version: string }>()
   const vNum = parseInt(version, 10)
   const router = useRouter()
+  const { isOrgAdmin, teamRole } = useAuth()
 
   const [prompt, setPrompt] = useState<Prompt | null>(null)
   const [ver, setVer] = useState<PromptVersion | null>(null)
@@ -29,6 +31,7 @@ export default function VersionEditorPage() {
   const [rendering, setRendering] = useState(false)
 
   const isDraft = ver?.status === 'draft'
+  const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   useEffect(() => {
     Promise.all([
@@ -45,6 +48,7 @@ export default function VersionEditorPage() {
   }, [id, vNum]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
+    if (!canEdit) return
     setSaving(true)
     setSaveMsg('')
     try {
@@ -60,6 +64,7 @@ export default function VersionEditorPage() {
   }
 
   async function handlePublish() {
+    if (!canEdit) return
     if (!confirm('Publish this version? The current live version will be archived.')) return
     setPublishing(true)
     setPublishMsg('')
@@ -109,7 +114,7 @@ export default function VersionEditorPage() {
         {saveMsg && <span className="inline-error" style={{ color: saveMsg === 'Saved.' ? '#4ade80' : undefined }}>{saveMsg}</span>}
         {publishMsg && <span className="inline-error" style={{ color: publishMsg === 'Published.' ? '#4ade80' : undefined }}>{publishMsg}</span>}
         <div className="version-actions">
-          {isDraft && (
+          {isDraft && canEdit && (
             <>
               <button className="btn btn-ghost" onClick={handleSave} disabled={saving}>
                 <Save size={13} />
@@ -129,7 +134,7 @@ export default function VersionEditorPage() {
         <div className="editor-panel">
           <div className="editor-panel-header">
             <span className="editor-panel-title">Template</span>
-            {!isDraft && (
+            {(!isDraft || !canEdit) && (
               <span className="td-mono" style={{ fontSize: '11px' }}>read-only</span>
             )}
           </div>
@@ -137,7 +142,7 @@ export default function VersionEditorPage() {
             className="editor-textarea"
             value={template}
             onChange={e => setTemplate(e.target.value)}
-            readOnly={!isDraft}
+            readOnly={!isDraft || !canEdit}
             spellCheck={false}
           />
         </div>
