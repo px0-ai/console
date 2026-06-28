@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [team, user])
 
-  const isOrgAdmin = user?.is_admin || organizations.some(o => o.role === 'admin')
+  const isOrgAdmin = user?.is_admin || organizations.some(o => o.role?.toLowerCase() === 'admin')
 
   return (
     <AuthContext.Provider

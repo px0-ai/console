@@ -31,7 +31,7 @@ export default function OrgSettingsPage() {
   const [totalPages, setTotalPages] = useState(1)
 
   // Find organization from context to ensure the user actually belongs to it
-  const org = organizations?.find(o => o.id === id)
+  const org = organizations?.find(o => o.id?.toLowerCase() === id?.toLowerCase())
   const isOrgAdmin = authIsOrgAdmin || org?.role?.toLowerCase() === 'admin'
 
   // Initialize org details
