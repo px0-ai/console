@@ -26,6 +26,7 @@ export default function EditTeamPage() {
 
   // Load team details and current user role
   useEffect(() => {
+    if (deleting) return
     if (!id || !organizations || organizations.length === 0 || !user) return
     
     let isMounted = true
@@ -82,7 +83,7 @@ export default function EditTeamPage() {
     return () => {
       isMounted = false
     }
-  }, [id, organizations, teams, user, router])
+  }, [id, organizations, teams, user, router, deleting])
 
   // Save changes handler
   async function handleSave(e: React.FormEvent) {
