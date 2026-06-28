@@ -113,6 +113,8 @@ export const api = {
       get<{ people: User[]; page: number; limit: number; total: number }>(
         `/v1/orgs/${orgID}/people?page=${page}&limit=${limit}`,
       ),
+    removeMember: (orgID: string, userID: string) =>
+      del<void>(`/v1/orgs/${orgID}/members/${userID}`),
   },
 
   prompts: {

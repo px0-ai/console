@@ -13,7 +13,7 @@ function fmtDate(s: string) {
 
 export default function OrgSettingsPage() {
   const { id } = useParams() as { id: string }
-  const { organizations, isOrgAdmin: authIsOrgAdmin, refreshOrgs } = useAuth()
+  const { user, organizations, isOrgAdmin: authIsOrgAdmin, refreshOrgs } = useAuth()
 
   const [activeTab, setActiveTab] = useState<'settings' | 'people'>('settings')
   const [orgName, setOrgName] = useState('Loading...')
@@ -62,6 +62,19 @@ export default function OrgSettingsPage() {
       setError(err instanceof Error ? err.message : 'Failed to update organization name')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Remove member handler (DELETE /v1/orgs/{orgID}/members/{userID})
+  async function handleRemoveMember(userID: string, email: string) {
+    if (!id) return
+    if (!confirm(`Are you sure you want to permanently remove ${email} from the organization? This will remove them from all teams.`)) return
+    try {
+      await api.orgs.removeMember(id, userID)
+      alert(`Successfully removed ${email} from the organization.`)
+      loadPeople()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to remove member')
     }
   }
 
@@ -242,12 +255,13 @@ export default function OrgSettingsPage() {
                     <th>Status</th>
                     <th>Global Role</th>
                     <th>Joined</th>
+                    {isOrgAdmin && <th style={{ width: 100, textAlign: 'right' }}>Action</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {people.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="table-empty">
+                      <td colSpan={isOrgAdmin ? 5 : 4} className="table-empty">
                         No members found.
                       </td>
                     </tr>
@@ -278,6 +292,20 @@ export default function OrgSettingsPage() {
                           )}
                         </td>
                         <td className="td-mono">{fmtDate(p.created_at)}</td>
+                        {isOrgAdmin && (
+                          <td style={{ textAlign: 'right' }}>
+                            {p.id !== user?.id && (
+                              <button
+                                className="btn"
+                                style={{ background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '4px 10px', fontSize: '11px', height: '26px', borderRadius: 'var(--r)' }}
+                                onClick={() => handleRemoveMember(p.id, p.email)}
+                                title="Remove member from organization"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
