@@ -281,7 +281,7 @@ export default function PromptsPage() {
               </thead>
               <tbody>
                 {prompts.length === 0 ? (
-                  <tr><td colSpan={canEdit ? 5 : 4} className="table-empty">No prompts yet. Create your first one.</td></tr>
+                  <tr><td colSpan={canEdit ? 5 : 4} className="table-empty">No prompts.</td></tr>
                 ) : (
                   prompts.map(p => (
                     <tr key={p.id}>
