@@ -80,26 +80,18 @@ export default function PromptsPage() {
   }, [showCreate, editableTeams, team])
 
   const [filterTeamId, setFilterTeamId] = useState('')
-  const [filterTag, setFilterTag] = useState('')
-  const [debouncedTag, setDebouncedTag] = useState('')
   const [filterStatus, setFilterStatus] = useState('active') // active, archived, all
   const [filtersInitialized, setFiltersInitialized] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const teamIdParam = params.get('team_id')
-    const tagParam = params.get('tag')
     const statusParam = params.get('status')
 
     if (teamIdParam) {
       setFilterTeamId(teamIdParam)
     } else if (team) {
       setFilterTeamId(team.id)
-    }
-
-    if (tagParam) {
-      setFilterTag(tagParam)
-      setDebouncedTag(tagParam)
     }
 
     if (statusParam) {
@@ -110,13 +102,6 @@ export default function PromptsPage() {
   }, [team]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedTag(filterTag)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [filterTag])
-
-  useEffect(() => {
     if (!filtersInitialized) return
 
     const params = new URLSearchParams(window.location.search)
@@ -124,11 +109,6 @@ export default function PromptsPage() {
       params.set('team_id', filterTeamId)
     } else {
       params.delete('team_id')
-    }
-    if (debouncedTag.trim()) {
-      params.set('tag', debouncedTag.trim())
-    } else {
-      params.delete('tag')
     }
     if (filterStatus) {
       params.set('status', filterStatus)
@@ -138,16 +118,12 @@ export default function PromptsPage() {
     const newSearch = params.toString()
     const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`
     window.history.replaceState(null, '', newUrl)
-  }, [filterTeamId, debouncedTag, filterStatus, filtersInitialized])
+  }, [filterTeamId, filterStatus, filtersInitialized])
 
   async function load() {
     if (!filterTeamId) return
     setLoading(true)
-    const params: { tag?: string; team_id?: string; archive?: boolean | string; status?: 'active' | 'archived'; all?: boolean } = {}
-    
-    if (debouncedTag.trim()) {
-      params.tag = debouncedTag.trim()
-    }
+    const params: { team_id?: string; archive?: boolean | string; status?: 'active' | 'archived'; all?: boolean } = {}
     
     if (filterStatus === 'archived') {
       params.status = 'archived'
@@ -167,10 +143,9 @@ export default function PromptsPage() {
   useEffect(() => {
     if (!filtersInitialized) return
     load()
-  }, [filterTeamId, debouncedTag, filterStatus, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterTeamId, filterStatus, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleResetFilters() {
-    setFilterTag('')
     setFilterStatus('active')
     if (team) {
       setFilterTeamId(team.id)
@@ -264,18 +239,7 @@ export default function PromptsPage() {
               </select>
             </div>
 
-            {/* Filter by Tag */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>TAG</span>
-              <input
-                type="text"
-                placeholder="tag name..."
-                className="input"
-                style={{ height: '28px', padding: '4px 10px', fontSize: '12px', width: '130px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
-                value={filterTag}
-                onChange={e => setFilterTag(e.target.value)}
-              />
-            </div>
+
 
             {/* Filter by Archive Status */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
