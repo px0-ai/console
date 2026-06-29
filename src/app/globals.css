@@ -1040,6 +1040,14 @@ textarea.input {
   to   { background-position: 40px 40px; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .editor-grid { grid-template-columns: 1fr; height: auto; }

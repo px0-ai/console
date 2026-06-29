@@ -17,6 +17,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'px0 Console',
   description: 'Management console for the px0 prompt repository',
+  icons: {
+    icon: 'https://px0.ai/favicon.ico',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, ChevronRight } from 'lucide-react'
+import { Plus, ChevronRight, GitCompare, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import type { Prompt, PromptVersion, PromptTag } from '@/lib/types'
+import type { Prompt, PromptVersion, PromptTag, PromptVersionsDiffResponse } from '@/lib/types'
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -38,6 +38,14 @@ export default function PromptDetailPage() {
   const [editDesc, setEditDesc] = useState('')
   const [updatingPrompt, setUpdatingPrompt] = useState(false)
   const [updatePromptErr, setUpdatePromptErr] = useState('')
+
+  // Compare versions states
+  const [showCompare, setShowCompare] = useState(false)
+  const [compareFrom, setCompareFrom] = useState<number>(0)
+  const [compareTo, setCompareTo] = useState<number>(0)
+  const [diffResult, setDiffResult] = useState<PromptVersionsDiffResponse | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
+  const [diffErr, setDiffErr] = useState('')
 
   const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
@@ -162,6 +170,109 @@ export default function PromptDetailPage() {
     }
   }
 
+  function handleOpenCompare() {
+    setDiffErr('')
+    setDiffResult(null)
+    setShowCompare(true)
+    
+    if (versions.length >= 2) {
+      const latest = versions[versions.length - 1].version
+      const prev = versions[versions.length - 2].version
+      setCompareFrom(prev)
+      setCompareTo(latest)
+    } else if (versions.length === 1) {
+      setCompareFrom(versions[0].version)
+      setCompareTo(versions[0].version)
+    }
+  }
+
+  useEffect(() => {
+    if (!showCompare || !compareFrom || !compareTo) return
+
+    let active = true
+    setDiffLoading(true)
+    setDiffErr('')
+    
+    api.versions.diff(id, compareFrom, compareTo)
+      .then(res => {
+        if (active) {
+          setDiffResult(res)
+        }
+      })
+      .catch(err => {
+        if (active) {
+          setDiffErr(err instanceof Error ? err.message : 'Failed to fetch diff')
+          setDiffResult(null)
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setDiffLoading(false)
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [showCompare, id, compareFrom, compareTo])
+
+  function renderDiffContent(diffText: string) {
+    if (!diffText) return <div style={{ color: 'var(--txt-muted)', padding: '10px 0' }}>No differences found.</div>
+
+    const lines = diffText.split('\n')
+    if (lines.length > 0 && lines[lines.length - 1] === '') {
+      lines.pop()
+    }
+
+    return (
+      <div style={{
+        background: 'var(--code-bg, #0f172a)',
+        border: '1px solid var(--bdr)',
+        borderRadius: '6px',
+        padding: '12px',
+        fontFamily: 'var(--font-mono, monospace)',
+        fontSize: '12px',
+        lineHeight: '1.6',
+        overflowX: 'auto',
+        maxHeight: '400px',
+        overflowY: 'auto',
+        whiteSpace: 'pre'
+      }}>
+        {lines.map((line, idx) => {
+          const style: React.CSSProperties = {
+            padding: '2px 8px',
+            margin: 0,
+            display: 'block',
+            borderRadius: '2px',
+          }
+          
+          if (line.startsWith('+') && !line.startsWith('+++')) {
+            style.background = 'rgba(16, 185, 129, 0.15)'
+            style.color = '#34d399'
+          } else if (line.startsWith('-') && !line.startsWith('---')) {
+            style.background = 'rgba(239, 68, 68, 0.15)'
+            style.color = '#f87171'
+          } else if (line.startsWith('@@')) {
+            style.background = 'rgba(139, 92, 246, 0.1)'
+            style.color = 'var(--violet, #a78bfa)'
+            style.fontWeight = 'bold'
+          } else if (line.startsWith('---') || line.startsWith('+++')) {
+            style.color = 'var(--txt-muted)'
+            style.fontWeight = 500
+          } else {
+            style.color = 'var(--txt)'
+          }
+
+          return (
+            <div key={idx} style={style}>
+              {line}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   if (promptLoading) return <div className="table-empty">Loading...</div>
   if (!prompt) return null
 
@@ -190,17 +301,29 @@ export default function PromptDetailPage() {
             {prompt.id} · updated {fmtDate(prompt.updated_at)}
           </p>
         </div>
-        {canEdit && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="btn btn-ghost" onClick={handleOpenEdit} style={{ border: '1px solid var(--bdr)' }}>
-              Edit
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {versions.length > 0 && (
+            <button
+              className="btn btn-ghost"
+              onClick={handleOpenCompare}
+              style={{ border: '1px solid var(--bdr)', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <GitCompare size={13} />
+              Compare Versions
             </button>
-            <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
-              <Plus size={13} />
-              New Version
-            </button>
-          </div>
-        )}
+          )}
+          {canEdit && (
+            <>
+              <button className="btn btn-ghost" onClick={handleOpenEdit} style={{ border: '1px solid var(--bdr)' }}>
+                Edit
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
+                <Plus size={13} />
+                New Version
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="table-wrap">
@@ -418,6 +541,75 @@ export default function PromptDetailPage() {
             />
             <span className="form-hint">Brief summary explaining the prompt&apos;s purpose.</span>
           </div>
+        </Modal>
+      )}
+
+      {showCompare && (
+        <Modal
+          title="Compare Versions"
+          onClose={() => { setShowCompare(false); setDiffResult(null); setDiffErr('') }}
+          wide
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setShowCompare(false)}>Close</button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--txt-muted)', fontWeight: 500 }}>From:</span>
+              <select
+                className="select"
+                style={{ height: '32px', padding: '4px 10px', fontSize: '13px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none', minWidth: '80px' }}
+                value={compareFrom}
+                onChange={e => setCompareFrom(parseInt(e.target.value, 10))}
+              >
+                {versions.map(v => (
+                  <option key={v.version} value={v.version}>v{v.version}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--txt-muted)', fontWeight: 500 }}>To:</span>
+              <select
+                className="select"
+                style={{ height: '32px', padding: '4px 10px', fontSize: '13px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none', minWidth: '80px' }}
+                value={compareTo}
+                onChange={e => setCompareTo(parseInt(e.target.value, 10))}
+              >
+                {versions.map(v => (
+                  <option key={v.version} value={v.version}>v{v.version}</option>
+                ))}
+              </select>
+            </div>
+
+            {diffLoading && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--txt-muted)' }}>
+                <RefreshCw size={12} className="animate-spin" />
+                Loading diff...
+              </span>
+            )}
+          </div>
+
+          {diffErr && (
+            <div className="auth-error" style={{ marginBottom: '16px' }}>{diffErr}</div>
+          )}
+
+          {!diffLoading && diffResult && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '11px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)' }}>
+                <span>Comparing v{diffResult.from_version} template with v{diffResult.to_version} template</span>
+              </div>
+              {renderDiffContent(diffResult.diff)}
+            </div>
+          )}
+
+          {!diffLoading && !diffResult && !diffErr && (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--txt-muted)' }}>
+              Select two versions above to see their unified diff.
+            </div>
+          )}
         </Modal>
       )}
     </>

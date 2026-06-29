@@ -1,7 +1,7 @@
 import type {
   User, Team, Prompt, PromptVersion, APIKey, APIKeyCreated,
   RenderResponse, TeamMember, Organization, OrganizationWithRole, TeamJoinRequest, PromptTag,
-  InboxItem, PromptPayload,
+  InboxItem, PromptPayload, PromptVersionsDiffResponse,
 } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -211,6 +211,8 @@ export const api = {
       del<void>(`/v1/prompts/${promptID}/versions/${version}`),
     render: (promptID: string, version: number, variables: Record<string, unknown>) =>
       post<RenderResponse>(`/v1/prompts/${promptID}/versions/${version}/render`, { variables }),
+    diff: (promptID: string, fromVersion: number, toVersion: number) =>
+      get<PromptVersionsDiffResponse>(`/v1/prompts/${promptID}/versions/diff?from=${fromVersion}&to=${toVersion}`),
   },
 
   apiKeys: {

@@ -114,3 +114,11 @@ export interface PromptPayload {
   created_at: string
   updated_at: string
 }
+
+export interface PromptVersionsDiffResponse {
+  from_version: number
+  to_version: number
+  from_template: string
+  to_template: string
+  diff: string
+}

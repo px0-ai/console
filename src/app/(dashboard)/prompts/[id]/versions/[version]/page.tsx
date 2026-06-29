@@ -491,7 +491,13 @@ export default function VersionEditorPage() {
               </a>
             </div>
             {(!isDraft || !canEdit) && (
-              <span className="td-mono" style={{ fontSize: '11px' }}>read-only</span>
+              <span
+                className="td-mono"
+                style={{ fontSize: '11px', cursor: 'help' }}
+                title="this prompt template is read-only because it has been prompted from draft state."
+              >
+                read-only
+              </span>
             )}
           </div>
           <textarea
