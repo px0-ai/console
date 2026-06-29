@@ -29,6 +29,10 @@ export default function PromptsPage() {
   const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   useEffect(() => {
+    document.title = 'Prompts | px0 Console'
+  }, [])
+
+  useEffect(() => {
     if (!user) return
     const userID = user.id
 

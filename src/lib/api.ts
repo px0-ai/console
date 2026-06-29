@@ -148,6 +148,8 @@ export const api = {
     },
     create: (teamID: string, name: string, description?: string) =>
       post<{ prompt: Prompt }>(`/v1/teams/${teamID}/prompts`, { name, description }),
+    update: (id: string, name: string, description?: string, slug?: string) =>
+      put<{ prompt: Prompt }>(`/v1/prompts/${id}`, { name, description, slug }),
     get: (id: string) =>
       get<{ prompt: Prompt }>(`/v1/prompts/${id}`),
     archive: (id: string) =>
@@ -168,6 +170,8 @@ export const api = {
     },
     get: (promptID: string, version: number) =>
       get<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}`),
+    duplicate: (promptID: string, version: number | string) =>
+      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/duplicate`),
     create: (promptID: string, template: string) =>
       post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions`, { template }),
     update: (promptID: string, version: number, template: string) =>

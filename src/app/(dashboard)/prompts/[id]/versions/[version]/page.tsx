@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Play, Save, Upload, FolderOpen, Trash2, Edit2, Check, X, ChevronDown, Plus } from 'lucide-react'
+import { ChevronRight, Play, Save, Upload, FolderOpen, Trash2, Edit2, Check, X, ChevronDown, Plus, Copy } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -78,6 +78,25 @@ export default function VersionEditorPage() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('duplicated') === 'true') {
+        setActionMsg('New version created.')
+        const cleanUrl = window.location.pathname
+        window.history.replaceState({}, '', cleanUrl)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (prompt && ver) {
+      document.title = `v${ver.version} - ${prompt.name} | px0 Console`
+    } else {
+      document.title = `v${version} | px0 Console`
+    }
+  }, [prompt, ver, version])
 
   const savePayloadsList = (list: SavedPayload[]) => {
     setSavedPayloads(list)
@@ -212,6 +231,21 @@ export default function VersionEditorPage() {
     }
   }
 
+  async function handleDuplicate() {
+    if (!canEdit || !ver) return
+    if (!confirm('Duplicate this version?')) return
+
+    setActionLoading(true)
+    setActionMsg('')
+    try {
+      const r = await api.versions.duplicate(id, vNum)
+      router.push(`/prompts/${id}/versions/${r.version.version}?duplicated=true`)
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Duplication failed')
+      setActionLoading(false)
+    }
+  }
+
   async function handleArchiveVersion() {
     if (!canEdit || !ver) return
     if (!confirm('Archive this version?')) return
@@ -264,41 +298,49 @@ export default function VersionEditorPage() {
         {saveMsg && <span className="inline-error" style={{ color: saveMsg === 'Saved.' ? '#4ade80' : undefined }}>{saveMsg}</span>}
         {actionMsg && <span className="inline-error" style={{ color: actionMsg.endsWith('.') ? '#4ade80' : undefined }}>{actionMsg}</span>}
         <div className="version-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {canEdit && !isArchived && (
+          {canEdit && (
             <>
-              {isDraft && (
-                <>
-                  <span style={{ fontSize: '11px', color: 'var(--txt-muted)', marginRight: '4px' }}>
-                    Promoting a version makes it read-only
-                  </span>
-                  <button className="btn btn-ghost" onClick={handleSave} disabled={saving || actionLoading} title="Save this prompt">
-                    <Save size={13} />
-                    {saving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button className="btn btn-primary" onClick={handlePromote} disabled={saving || actionLoading}>
-                    <Upload size={13} />
-                    {actionLoading ? 'Promoting...' : 'Promote to Stable'}
-                  </button>
-                </>
-              )}
-              {isStable && (
-                <>
-                  <button className="btn btn-primary" onClick={handlePromote} disabled={actionLoading}>
-                    <Upload size={13} />
-                    {actionLoading ? 'Promoting...' : 'Promote to Live'}
-                  </button>
-                </>
-              )}
-              {isLive && (
-                <>
-                  <button className="btn btn-ghost" onClick={handleDemote} disabled={actionLoading}>
-                    Demote to Stable
-                  </button>
-                </>
-              )}
-              <button className="btn btn-danger" onClick={handleArchiveVersion} disabled={saving || actionLoading} style={{ height: 38 }}>
-                Archive
+              <button className="btn btn-ghost" onClick={handleDuplicate} disabled={saving || actionLoading} title="Duplicate this version to create a new draft">
+                <Copy size={13} />
+                {actionLoading ? 'Duplicating...' : 'Duplicate'}
               </button>
+              {!isArchived && (
+                <>
+                  {isDraft && (
+                    <>
+                      <span style={{ fontSize: '11px', color: 'var(--txt-muted)', marginRight: '4px' }}>
+                        Promoting a version makes it read-only
+                      </span>
+                      <button className="btn btn-ghost" onClick={handleSave} disabled={saving || actionLoading} title="Save this prompt">
+                        <Save size={13} />
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                      <button className="btn btn-primary" onClick={handlePromote} disabled={saving || actionLoading}>
+                        <Upload size={13} />
+                        {actionLoading ? 'Promoting...' : 'Promote to Stable'}
+                      </button>
+                    </>
+                  )}
+                  {isStable && (
+                    <>
+                      <button className="btn btn-primary" onClick={handlePromote} disabled={actionLoading}>
+                        <Upload size={13} />
+                        {actionLoading ? 'Promoting...' : 'Promote to Live'}
+                      </button>
+                    </>
+                  )}
+                  {isLive && (
+                    <>
+                      <button className="btn btn-ghost" onClick={handleDemote} disabled={actionLoading}>
+                        Demote to Stable
+                      </button>
+                    </>
+                  )}
+                  <button className="btn btn-danger" onClick={handleArchiveVersion} disabled={saving || actionLoading} style={{ height: 38 }}>
+                    Archive
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>

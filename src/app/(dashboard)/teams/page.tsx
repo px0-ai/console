@@ -81,6 +81,10 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true)
   const [teamRoles, setTeamRoles] = useState<Record<string, string>>({})
 
+  useEffect(() => {
+    document.title = 'Teams | px0 Console'
+  }, [])
+
   // Pagination State
   const [page, setPage] = useState(1)
   const limit = 5

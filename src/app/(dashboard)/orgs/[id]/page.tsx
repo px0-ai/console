@@ -46,6 +46,14 @@ export default function OrgSettingsPage() {
     }
   }, [id, organizations])
 
+  useEffect(() => {
+    if (orgName && orgName !== 'Loading...') {
+      document.title = `${orgName} | px0 Console`
+    } else {
+      document.title = 'Organization Details | px0 Console'
+    }
+  }, [orgName])
+
   // Save changes handler (PUT /v1/orgs/{id})
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()

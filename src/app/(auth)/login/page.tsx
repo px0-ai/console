@@ -17,6 +17,10 @@ function LoginForm() {
   const searchParams = useSearchParams()
 
   useEffect(() => {
+    document.title = 'Sign In | px0 Console'
+  }, [])
+
+  useEffect(() => {
     if (searchParams.get('registered') === 'true') {
       setSuccess('Account created! Please sign in to verify your email.')
     }

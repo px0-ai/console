@@ -51,6 +51,14 @@ export default function TeamMembersPage() {
     }
   }, [id, organizations, teams])
 
+  useEffect(() => {
+    if (teamName && teamName !== 'Loading...') {
+      document.title = `Members - ${teamName} | px0 Console`
+    } else {
+      document.title = 'Team Members | px0 Console'
+    }
+  }, [teamName])
+
   // Fetch team members list
   const loadMembers = useCallback(() => {
     if (!id) return

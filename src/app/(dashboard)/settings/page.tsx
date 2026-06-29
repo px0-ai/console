@@ -1,11 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 
 export default function SettingsPage() {
   const { token, user, login } = useAuth()
+
+  useEffect(() => {
+    document.title = 'Settings | px0 Console'
+  }, [])
 
   // Verification state
   const [verificationCode, setVerificationCode] = useState('')

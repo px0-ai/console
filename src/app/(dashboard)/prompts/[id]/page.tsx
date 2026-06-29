@@ -34,6 +34,11 @@ export default function PromptDetailPage() {
   const [creating, setCreating] = useState(false)
   const [createErr, setCreateErr] = useState('')
 
+  const [showEditPrompt, setShowEditPrompt] = useState(false)
+  const [editDesc, setEditDesc] = useState('')
+  const [updatingPrompt, setUpdatingPrompt] = useState(false)
+  const [updatePromptErr, setUpdatePromptErr] = useState('')
+
   const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   useEffect(() => {
@@ -48,6 +53,14 @@ export default function PromptDetailPage() {
       .catch(() => router.replace('/prompts'))
       .finally(() => setPromptLoading(false))
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (prompt) {
+      document.title = `${prompt.name} | px0 Console`
+    } else {
+      document.title = 'Prompt Detail | px0 Console'
+    }
+  }, [prompt])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -93,6 +106,29 @@ export default function PromptDetailPage() {
       })
       .finally(() => setVersionsLoading(false))
   }, [id, statusFilter, tagFilter, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleOpenEdit() {
+    if (!prompt) return
+    setEditDesc(prompt.description || '')
+    setUpdatePromptErr('')
+    setShowEditPrompt(true)
+  }
+
+  async function handleUpdatePrompt(e: React.FormEvent) {
+    e.preventDefault()
+    if (!prompt || !canEdit) return
+    setUpdatePromptErr('')
+    setUpdatingPrompt(true)
+    try {
+      const r = await api.prompts.update(id, prompt.name, editDesc, prompt.slug)
+      setPrompt(r.prompt)
+      setShowEditPrompt(false)
+    } catch (err) {
+      setUpdatePromptErr(err instanceof Error ? err.message : 'Failed to update prompt')
+    } finally {
+      setUpdatingPrompt(false)
+    }
+  }
 
   async function handleCreateVersion(e: React.FormEvent) {
     e.preventDefault()
@@ -155,10 +191,15 @@ export default function PromptDetailPage() {
           </p>
         </div>
         {canEdit && (
-          <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
-            <Plus size={13} />
-            New Version
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="btn btn-ghost" onClick={handleOpenEdit} style={{ border: '1px solid var(--bdr)' }}>
+              Edit
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowNewVersion(true)}>
+              <Plus size={13} />
+              New Version
+            </button>
+          </div>
         )}
       </div>
 
@@ -317,6 +358,65 @@ export default function PromptDetailPage() {
               autoFocus
             />
             <span className="form-hint">Go template syntax. Use {'{{.variable}}'} for variables.</span>
+          </div>
+        </Modal>
+      )}
+
+      {showEditPrompt && canEdit && (
+        <Modal
+          title="Edit Prompt"
+          onClose={() => { setShowEditPrompt(false); setUpdatePromptErr('') }}
+          footer={
+            <>
+              <button className="btn btn-ghost" onClick={() => setShowEditPrompt(false)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                onClick={handleUpdatePrompt}
+                disabled={updatingPrompt}
+              >
+                {updatingPrompt ? 'Saving...' : 'Save'}
+              </button>
+            </>
+          }
+        >
+          {updatePromptErr && <div className="auth-error">{updatePromptErr}</div>}
+          <div className="form-field">
+            <label className="form-label">Name</label>
+            <input
+              type="text"
+              className="input"
+              value={prompt.name}
+              readOnly
+              disabled
+              style={{ background: 'var(--code-bg)', color: 'var(--txt-muted)', cursor: 'not-allowed' }}
+            />
+            <span className="form-hint">Prompt name cannot be modified.</span>
+          </div>
+
+          <div className="form-field" style={{ marginTop: '16px' }}>
+            <label className="form-label">Slug</label>
+            <input
+              type="text"
+              className="input td-mono"
+              value={prompt.slug || ''}
+              readOnly
+              disabled
+              style={{ background: 'var(--code-bg)', color: 'var(--txt-muted)', cursor: 'not-allowed' }}
+            />
+            <span className="form-hint">Prompt slug cannot be modified.</span>
+          </div>
+
+          <div className="form-field" style={{ marginTop: '16px' }}>
+            <label className="form-label">Description</label>
+            <textarea
+              className="input"
+              style={{ minHeight: 100, lineHeight: 1.5 }}
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+              placeholder="Enter a description for this prompt..."
+              autoFocus
+            />
+            <span className="form-hint">Brief summary explaining the prompt&apos;s purpose.</span>
           </div>
         </Modal>
       )}

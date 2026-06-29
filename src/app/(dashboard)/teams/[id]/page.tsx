@@ -85,6 +85,14 @@ export default function EditTeamPage() {
     }
   }, [id, organizations, teams, user, router, deleting])
 
+  useEffect(() => {
+    if (team) {
+      document.title = `${team.name} Settings | px0 Console`
+    } else {
+      document.title = 'Team Settings | px0 Console'
+    }
+  }, [team])
+
   // Save changes handler
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()

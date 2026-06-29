@@ -11,6 +11,10 @@ export default function DashboardPage() {
   const [promptCount, setPromptCount] = useState<number | null>(null)
 
   useEffect(() => {
+    document.title = 'Dashboard | px0 Console'
+  }, [])
+
+  useEffect(() => {
     if (!team) return
     api.prompts.list(team.id)
       .then(r => setPromptCount(r.prompts.length))

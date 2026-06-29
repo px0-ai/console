@@ -36,6 +36,10 @@ export default function ApiKeysPage() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    document.title = 'API Keys | px0 Console'
+  }, [])
+
   useEffect(() => { load() }, [team]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreate(e: React.FormEvent) {

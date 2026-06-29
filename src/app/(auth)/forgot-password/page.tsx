@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/api'
@@ -14,6 +14,10 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const router = useRouter()
+
+  useEffect(() => {
+    document.title = 'Forgot Password | px0 Console'
+  }, [])
 
   async function handleTriggerReset(e: React.FormEvent) {
     e.preventDefault()

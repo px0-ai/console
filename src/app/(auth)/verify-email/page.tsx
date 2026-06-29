@@ -9,6 +9,10 @@ function VerifyEmailRedirect() {
   const { token, isLoaded } = useAuth()
 
   useEffect(() => {
+    document.title = 'Verify Email | px0 Console'
+  }, [])
+
+  useEffect(() => {
     if (isLoaded) {
       if (token) {
         router.replace('/settings')
