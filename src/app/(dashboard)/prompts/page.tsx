@@ -82,12 +82,31 @@ export default function PromptsPage() {
   const [filterTag, setFilterTag] = useState('')
   const [debouncedTag, setDebouncedTag] = useState('')
   const [filterArchive, setFilterArchive] = useState('active') // active, archived, all
+  const [filtersInitialized, setFiltersInitialized] = useState(false)
 
   useEffect(() => {
-    if (team) {
+    const params = new URLSearchParams(window.location.search)
+    const teamIdParam = params.get('team_id')
+    const tagParam = params.get('tag')
+    const archiveParam = params.get('archive')
+
+    if (teamIdParam) {
+      setFilterTeamId(teamIdParam)
+    } else if (team) {
       setFilterTeamId(team.id)
     }
-  }, [team])
+
+    if (tagParam) {
+      setFilterTag(tagParam)
+      setDebouncedTag(tagParam)
+    }
+
+    if (archiveParam) {
+      setFilterArchive(archiveParam)
+    }
+
+    setFiltersInitialized(true)
+  }, [team]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -95,6 +114,30 @@ export default function PromptsPage() {
     }, 300)
     return () => clearTimeout(timer)
   }, [filterTag])
+
+  useEffect(() => {
+    if (!filtersInitialized) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (filterTeamId) {
+      params.set('team_id', filterTeamId)
+    } else {
+      params.delete('team_id')
+    }
+    if (debouncedTag.trim()) {
+      params.set('tag', debouncedTag.trim())
+    } else {
+      params.delete('tag')
+    }
+    if (filterArchive) {
+      params.set('archive', filterArchive)
+    } else {
+      params.delete('archive')
+    }
+    const newSearch = params.toString()
+    const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`
+    window.history.replaceState(null, '', newUrl)
+  }, [filterTeamId, debouncedTag, filterArchive, filtersInitialized])
 
   async function load() {
     if (!filterTeamId) return
@@ -120,7 +163,10 @@ export default function PromptsPage() {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [filterTeamId, debouncedTag, filterArchive]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!filtersInitialized) return
+    load()
+  }, [filterTeamId, debouncedTag, filterArchive, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleResetFilters() {
     setFilterTag('')
