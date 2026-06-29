@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Archive } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import type { Prompt, Team } from '@/lib/types'
 
 function fmtDate(s: string) {
@@ -81,14 +82,14 @@ export default function PromptsPage() {
   const [filterTeamId, setFilterTeamId] = useState('')
   const [filterTag, setFilterTag] = useState('')
   const [debouncedTag, setDebouncedTag] = useState('')
-  const [filterArchive, setFilterArchive] = useState('active') // active, archived, all
+  const [filterStatus, setFilterStatus] = useState('active') // active, archived, all
   const [filtersInitialized, setFiltersInitialized] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const teamIdParam = params.get('team_id')
     const tagParam = params.get('tag')
-    const archiveParam = params.get('archive')
+    const statusParam = params.get('status')
 
     if (teamIdParam) {
       setFilterTeamId(teamIdParam)
@@ -101,8 +102,8 @@ export default function PromptsPage() {
       setDebouncedTag(tagParam)
     }
 
-    if (archiveParam) {
-      setFilterArchive(archiveParam)
+    if (statusParam) {
+      setFilterStatus(statusParam)
     }
 
     setFiltersInitialized(true)
@@ -129,30 +130,30 @@ export default function PromptsPage() {
     } else {
       params.delete('tag')
     }
-    if (filterArchive) {
-      params.set('archive', filterArchive)
+    if (filterStatus) {
+      params.set('status', filterStatus)
     } else {
-      params.delete('archive')
+      params.delete('status')
     }
     const newSearch = params.toString()
     const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`
     window.history.replaceState(null, '', newUrl)
-  }, [filterTeamId, debouncedTag, filterArchive, filtersInitialized])
+  }, [filterTeamId, debouncedTag, filterStatus, filtersInitialized])
 
   async function load() {
     if (!filterTeamId) return
     setLoading(true)
-    const params: { tag?: string; team_id?: string; archive?: boolean | string; all?: boolean } = {}
+    const params: { tag?: string; team_id?: string; archive?: boolean | string; status?: 'active' | 'archived'; all?: boolean } = {}
     
     if (debouncedTag.trim()) {
       params.tag = debouncedTag.trim()
     }
     
-    if (filterArchive === 'archived') {
-      params.archive = true
-    } else if (filterArchive === 'active') {
-      params.archive = false
-    } else if (filterArchive === 'all') {
+    if (filterStatus === 'archived') {
+      params.status = 'archived'
+    } else if (filterStatus === 'active') {
+      params.status = 'active'
+    } else if (filterStatus === 'all') {
       params.all = true
     }
 
@@ -166,11 +167,11 @@ export default function PromptsPage() {
   useEffect(() => {
     if (!filtersInitialized) return
     load()
-  }, [filterTeamId, debouncedTag, filterArchive, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filterTeamId, debouncedTag, filterStatus, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleResetFilters() {
     setFilterTag('')
-    setFilterArchive('active')
+    setFilterStatus('active')
     if (team) {
       setFilterTeamId(team.id)
     }
@@ -201,17 +202,21 @@ export default function PromptsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleArchive(id: string) {
     if (!canEdit) {
-      alert('You do not have permission to delete prompts.')
+      alert('You do not have permission to archive prompts.')
       return
     }
-    if (!confirm('Delete this prompt and all its versions? This cannot be undone.')) return
+    if (!confirm('Archive this prompt? This action cannot be undone.')) return
     try {
-      await api.prompts.delete(id)
-      setPrompts(p => p.filter(x => x.id !== id))
+      await api.prompts.archive(id)
+      if (filterStatus === 'active') {
+        setPrompts(p => p.filter(x => x.id !== id))
+      } else {
+        setPrompts(p => p.map(x => x.id === id ? { ...x, status: 'archived' } : x))
+      }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Delete failed')
+      alert(err instanceof Error ? err.message : 'Archive failed')
     }
   }
 
@@ -278,8 +283,8 @@ export default function PromptsPage() {
               <select
                 className="select"
                 style={{ height: '28px', padding: '2px 8px', fontSize: '12px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
-                value={filterArchive}
-                onChange={e => setFilterArchive(e.target.value)}
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
               >
                 <option value="active">Active Only</option>
                 <option value="archived">Archived Only</option>
@@ -317,25 +322,30 @@ export default function PromptsPage() {
                   prompts.map(p => (
                     <tr key={p.id}>
                       <td>
-                        <a
-                          href={`/prompts/${p.id}`}
-                          style={{ color: 'var(--txt)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '13px' }}
-                        >
-                          {p.name}
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <a
+                            href={`/prompts/${p.id}`}
+                            style={{ color: 'var(--txt)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '13px' }}
+                          >
+                            {p.name}
+                          </a>
+                          {p.status === 'archived' && <StatusBadge status="archived" />}
+                        </div>
                       </td>
                       <td className="td-mono">{p.description || <span style={{ color: 'var(--dim)' }}>—</span>}</td>
                       <td className="td-mono">{fmtDate(p.updated_at)}</td>
                       <td className="td-mono">{fmtDate(p.created_at)}</td>
                       {canEdit && (
                         <td>
-                          <button
-                            className="btn-icon danger"
-                            onClick={() => handleDelete(p.id)}
-                            title="Delete prompt"
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {p.status !== 'archived' && (
+                            <button
+                              className="btn-icon danger"
+                              onClick={() => handleArchive(p.id)}
+                              title="Archive prompt"
+                            >
+                              <Archive size={13} />
+                            </button>
+                          )}
                         </td>
                       )}
                     </tr>

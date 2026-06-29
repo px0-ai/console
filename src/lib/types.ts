@@ -47,6 +47,7 @@ export interface Prompt {
   slug?: string
   name: string
   description: string
+  status: 'active' | 'archived'
   created_at: string
   updated_at: string
 }
