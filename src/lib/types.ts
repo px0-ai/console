@@ -88,3 +88,8 @@ export interface RenderResponse {
   rendered: string
   version: number
 }
+
+export interface PromptTag {
+  tag: string
+  version: number
+}

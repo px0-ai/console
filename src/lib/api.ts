@@ -1,6 +1,6 @@
 import type {
   User, Team, Prompt, PromptVersion, APIKey, APIKeyCreated,
-  RenderResponse, TeamMember, Organization, OrganizationWithRole, TeamJoinRequest,
+  RenderResponse, TeamMember, Organization, OrganizationWithRole, TeamJoinRequest, PromptTag,
 } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -153,11 +153,18 @@ export const api = {
       del<void>(`/v1/prompts/${id}`),
     render: (id: string, variables: Record<string, unknown>) =>
       post<RenderResponse>(`/v1/prompts/${id}/render`, { variables }),
+    listTags: (id: string) =>
+      get<{ tags: PromptTag[] }>(`/v1/prompts/${id}/tags`),
   },
 
   versions: {
-    list: (promptID: string) =>
-      get<{ versions: PromptVersion[] }>(`/v1/prompts/${promptID}/versions`),
+    list: (promptID: string, params?: { tags?: string; status?: string }) => {
+      const q = new URLSearchParams()
+      if (params?.tags) q.set('tags', params.tags)
+      if (params?.status) q.set('status', params.status)
+      const queryStr = q.toString()
+      return get<{ versions: PromptVersion[] }>(`/v1/prompts/${promptID}/versions${queryStr ? `?${queryStr}` : ''}`)
+    },
     get: (promptID: string, version: number) =>
       get<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}`),
     create: (promptID: string, template: string) =>

@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { Modal } from '@/components/ui/Modal'
 import { StatusBadge } from '@/components/ui/StatusBadge'
-import type { Prompt, PromptVersion } from '@/lib/types'
+import type { Prompt, PromptVersion, PromptTag } from '@/lib/types'
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -21,7 +21,12 @@ export default function PromptDetailPage() {
 
   const [prompt, setPrompt] = useState<Prompt | null>(null)
   const [versions, setVersions] = useState<PromptVersion[]>([])
-  const [loading, setLoading] = useState(true)
+  const [availableTags, setAvailableTags] = useState<PromptTag[]>([])
+  const [promptLoading, setPromptLoading] = useState(true)
+  const [versionsLoading, setVersionsLoading] = useState(true)
+
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [tagFilter, setTagFilter] = useState<string>('')
 
   const [showNewVersion, setShowNewVersion] = useState(false)
   const [newTemplate, setNewTemplate] = useState('')
@@ -33,15 +38,30 @@ export default function PromptDetailPage() {
   useEffect(() => {
     Promise.all([
       api.prompts.get(id),
-      api.versions.list(id),
+      api.prompts.listTags(id).catch(() => ({ tags: [] })),
     ])
-      .then(([p, v]) => {
+      .then(([p, t]) => {
         setPrompt(p.prompt)
-        setVersions(v.versions)
+        setAvailableTags(t.tags)
       })
       .catch(() => router.replace('/prompts'))
-      .finally(() => setLoading(false))
+      .finally(() => setPromptLoading(false))
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setVersionsLoading(true)
+    api.versions.list(id, {
+      status: statusFilter || undefined,
+      tags: tagFilter || undefined,
+    })
+      .then(v => {
+        setVersions(v.versions)
+      })
+      .catch(err => {
+        console.error('Failed to load versions', err)
+      })
+      .finally(() => setVersionsLoading(false))
+  }, [id, statusFilter, tagFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreateVersion(e: React.FormEvent) {
     e.preventDefault()
@@ -61,14 +81,21 @@ export default function PromptDetailPage() {
     if (!confirm(`Are you sure you want to delete draft version v${versionNum}?`)) return
     try {
       await api.versions.delete(id, versionNum)
-      const v = await api.versions.list(id)
+      const [t, v] = await Promise.all([
+        api.prompts.listTags(id).catch(() => ({ tags: [] })),
+        api.versions.list(id, {
+          status: statusFilter || undefined,
+          tags: tagFilter || undefined,
+        })
+      ])
+      setAvailableTags(t.tags)
       setVersions(v.versions)
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete version')
     }
   }
 
-  if (loading) return <div className="table-empty">Loading...</div>
+  if (promptLoading) return <div className="table-empty">Loading...</div>
   if (!prompt) return null
 
   return (
@@ -112,7 +139,60 @@ export default function PromptDetailPage() {
               Publishing a version makes it read-only
             </span>
           </div>
-          <span className="td-mono">{versions.length} total</span>
+          <span className="td-mono">
+            {(statusFilter || tagFilter) ? `${versions.length} matching` : `${versions.length} total`}
+          </span>
+        </div>
+
+        {/* Filters bar */}
+        <div style={{ display: 'flex', gap: '16px', padding: '12px 20px', borderBottom: '1px solid var(--bdr)', alignItems: 'center', background: 'rgba(0,0,0,0.12)', flexWrap: 'wrap' }}>
+          {/* Filter by Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>STATUS</span>
+            <select
+              className="select"
+              style={{ height: '28px', padding: '2px 8px', fontSize: '12px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="draft">Draft</option>
+              <option value="live">Live</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
+          {/* Filter by Tag */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>TAG</span>
+            <select
+              className="select"
+              style={{ height: '28px', padding: '2px 8px', fontSize: '12px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none', minWidth: '120px' }}
+              value={tagFilter}
+              onChange={e => setTagFilter(e.target.value)}
+            >
+              <option value="">All Tags</option>
+              {availableTags.map(t => (
+                <option key={t.tag} value={t.tag}>
+                  {t.tag} (v{t.version})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reset Filters */}
+          {(statusFilter || tagFilter) && (
+            <button
+              className="btn btn-ghost"
+              style={{ height: '28px', padding: '0 10px', fontSize: '12px', marginLeft: 'auto', border: '1px solid var(--bdr)' }}
+              onClick={() => {
+                setStatusFilter('')
+                setTagFilter('')
+              }}
+            >
+              Reset
+            </button>
+          )}
         </div>
 
         <table>
@@ -126,8 +206,14 @@ export default function PromptDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {versions.length === 0 ? (
-              <tr><td colSpan={5} className="table-empty">No versions yet. Create the first one.</td></tr>
+            {versionsLoading ? (
+              <tr><td colSpan={5} className="table-empty">Loading versions...</td></tr>
+            ) : versions.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="table-empty">
+                  {statusFilter || tagFilter ? 'No versions matching filters.' : 'No versions yet. Create the first one.'}
+                </td>
+              </tr>
             ) : (
               [...versions].reverse().map(v => (
                 <tr key={v.id}>
