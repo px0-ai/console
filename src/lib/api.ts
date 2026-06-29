@@ -26,9 +26,19 @@ function authHeaders(): Record<string, string> {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(authHeaders())
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => {
+      headers.set(key, value)
+    })
+  }
+
+  const restInit = { ...init }
+  delete restInit.headers
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { ...authHeaders(), ...init?.headers },
-    ...init,
+    ...restInit,
+    headers,
   })
 
   if (res.status === 204) return undefined as T
