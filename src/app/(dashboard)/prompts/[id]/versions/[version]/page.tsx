@@ -1,13 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Play, Save, Upload } from 'lucide-react'
+import { ChevronRight, Play, Save, Upload, FolderOpen, Trash2, Edit2, Check, X, ChevronDown, Plus } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { JsonEditor } from '@/components/ui/JsonEditor'
 import type { Prompt, PromptVersion } from '@/lib/types'
+
+interface SavedPayload {
+  id: string
+  name: string
+  variables: string
+  updatedAt: number
+}
 
 export default function VersionEditorPage() {
   const { id, version } = useParams<{ id: string; version: string }>()
@@ -32,6 +40,107 @@ export default function VersionEditorPage() {
 
   const isDraft = ver?.status === 'draft'
   const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
+
+  const [savedPayloads, setSavedPayloads] = useState<SavedPayload[]>([])
+  const [isPayloadsOpen, setIsPayloadsOpen] = useState(false)
+  const [isSavingCurrent, setIsSavingCurrent] = useState(false)
+  const [newPayloadName, setNewPayloadName] = useState('')
+  const [editingPayloadId, setEditingPayloadId] = useState<string | null>(null)
+  const [editingPayloadName, setEditingPayloadName] = useState('')
+
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const key = `px0-prompt-payloads:${id}`
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        try {
+          setSavedPayloads(JSON.parse(stored))
+        } catch (e) {
+          console.error('Failed to parse saved payloads', e)
+        }
+      }
+    }
+  }, [id])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsPayloadsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
+
+  const savePayloadsList = (list: SavedPayload[]) => {
+    setSavedPayloads(list)
+    localStorage.setItem(`px0-prompt-payloads:${id}`, JSON.stringify(list))
+  }
+
+  const handleSavePayload = () => {
+    if (!newPayloadName.trim()) return
+    try {
+      JSON.parse(renderVars)
+    } catch {
+      alert('Cannot save invalid JSON as a payload.')
+      return
+    }
+
+    const newPayload: SavedPayload = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: newPayloadName.trim(),
+      variables: renderVars,
+      updatedAt: Date.now(),
+    }
+
+    const updated = [...savedPayloads, newPayload]
+    savePayloadsList(updated)
+    setNewPayloadName('')
+    setIsSavingCurrent(false)
+  }
+
+  const handleLoadPayload = (payload: SavedPayload) => {
+    setRenderVars(payload.variables)
+    setIsPayloadsOpen(false)
+  }
+
+  const handleStartRename = (payload: SavedPayload, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingPayloadId(payload.id)
+    setEditingPayloadName(payload.name)
+  }
+
+  const handleSaveRename = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation()
+    if (!editingPayloadName.trim() || !editingPayloadId) return
+
+    const updated = savedPayloads.map(p => {
+      if (p.id === editingPayloadId) {
+        return { ...p, name: editingPayloadName.trim(), updatedAt: Date.now() }
+      }
+      return p
+    })
+    savePayloadsList(updated)
+    setEditingPayloadId(null)
+    setEditingPayloadName('')
+  }
+
+  const handleCancelRename = (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation()
+    setEditingPayloadId(null)
+    setEditingPayloadName('')
+  }
+
+  const handleDeletePayload = (payloadId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this saved payload?')) return
+    const updated = savedPayloads.filter(p => p.id !== payloadId)
+    savePayloadsList(updated)
+  }
 
   useEffect(() => {
     Promise.all([
@@ -134,7 +243,9 @@ export default function VersionEditorPage() {
         <div className="editor-panel">
           <div className="editor-panel-header">
             <span className="editor-panel-title">Template</span>
-            {(!isDraft || !canEdit) && (
+            {isDraft && canEdit ? (
+              <span style={{ fontSize: '11px', color: 'var(--txt-muted)' }}>Publishing makes it read-only</span>
+            ) : (
               <span className="td-mono" style={{ fontSize: '11px' }}>read-only</span>
             )}
           </div>
@@ -158,18 +269,187 @@ export default function VersionEditorPage() {
               disabled={rendering}
             >
               <Play size={11} />
-              {rendering ? 'Running...' : 'Run'}
+              {rendering ? 'Rendering...' : 'Render'}
             </button>
           </div>
 
           <div className="render-pane">
             <div className="render-vars-section">
-              <p className="render-vars-label">Variables (JSON)</p>
-              <textarea
-                className="render-vars-input"
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+                <p className="render-vars-label">Variables (JSON)</p>
+                <div ref={dropdownRef} style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
+                  <button
+                    type="button"
+                    className="payloads-select-btn"
+                    onClick={() => setIsPayloadsOpen(!isPayloadsOpen)}
+                  >
+                    <FolderOpen size={11} />
+                    Payloads ({savedPayloads.length})
+                    <ChevronDown size={10} />
+                  </button>
+                  <button
+                    type="button"
+                    className="payloads-select-btn"
+                    title="Save current variables as payload"
+                    onClick={() => {
+                      try {
+                        JSON.parse(renderVars)
+                        setIsSavingCurrent(true)
+                        setIsPayloadsOpen(true)
+                      } catch {
+                        alert('Please enter valid JSON in the editor before saving.')
+                      }
+                    }}
+                    style={{ padding: '6px' }}
+                  >
+                    <Save size={11} />
+                  </button>
+
+                  {isPayloadsOpen && (
+                    <div className="payloads-dropdown">
+                      <div className="payloads-dropdown-header" style={{ padding: '4px 8px', borderBottom: '1px solid var(--bdr)', fontSize: '10px', color: 'var(--muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>SAVED PAYLOADS</span>
+                        <button
+                          type="button"
+                          className="payload-action-btn"
+                          title="Save current"
+                          onClick={() => {
+                            try {
+                              JSON.parse(renderVars)
+                              setIsSavingCurrent(true)
+                            } catch {
+                              alert('Please enter valid JSON in the editor before saving.')
+                            }
+                          }}
+                          style={{ color: 'var(--yellow)' }}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+
+                      {isSavingCurrent && (
+                        <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--bdr)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <input
+                            type="text"
+                            placeholder="Payload name..."
+                            value={newPayloadName}
+                            onChange={e => setNewPayloadName(e.target.value)}
+                            style={{
+                              background: 'var(--bg)',
+                              border: '1px solid var(--bdr)',
+                              borderRadius: '4px',
+                              padding: '4px 6px',
+                              fontSize: '11px',
+                              color: 'var(--txt)',
+                              width: '100%',
+                              outline: 'none',
+                              fontFamily: 'var(--font-mono)'
+                            }}
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleSavePayload()
+                              if (e.key === 'Escape') setIsSavingCurrent(false)
+                            }}
+                          />
+                          <div style={{ display: 'flex', gap: '4px', alignSelf: 'flex-end' }}>
+                            <button
+                              type="button"
+                              className="json-editor-btn"
+                              onClick={handleSavePayload}
+                              style={{ fontSize: '9px', padding: '2px 6px' }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className="json-editor-btn"
+                              onClick={() => setIsSavingCurrent(false)}
+                              style={{ fontSize: '9px', padding: '2px 6px' }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px' }}>
+                        {savedPayloads.length === 0 ? (
+                          <div style={{ padding: '12px 8px', fontSize: '10px', color: 'var(--muted)', textAlign: 'center' }}>
+                            No saved payloads
+                          </div>
+                        ) : (
+                          savedPayloads.map(payload => (
+                            <div
+                              key={payload.id}
+                              className="payloads-dropdown-item"
+                              onClick={() => handleLoadPayload(payload)}
+                            >
+                              {editingPayloadId === payload.id ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    value={editingPayloadName}
+                                    onChange={e => setEditingPayloadName(e.target.value)}
+                                    style={{
+                                      background: 'var(--bg)',
+                                      border: '1px solid var(--bdr)',
+                                      borderRadius: '4px',
+                                      padding: '2px 4px',
+                                      fontSize: '11px',
+                                      color: 'var(--txt)',
+                                      width: '100%',
+                                      outline: 'none',
+                                      fontFamily: 'var(--font-mono)'
+                                    }}
+                                    autoFocus
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') handleSaveRename(e)
+                                      if (e.key === 'Escape') handleCancelRename(e)
+                                    }}
+                                  />
+                                  <button type="button" className="payload-action-btn" onClick={handleSaveRename}>
+                                    <Check size={11} />
+                                  </button>
+                                  <button type="button" className="payload-action-btn" onClick={handleCancelRename}>
+                                    <X size={11} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '140px' }} title={payload.name}>
+                                    {payload.name}
+                                  </span>
+                                  <div className="payloads-dropdown-actions">
+                                    <button
+                                      type="button"
+                                      className="payload-action-btn"
+                                      title="Rename"
+                                      onClick={e => handleStartRename(payload, e)}
+                                    >
+                                      <Edit2 size={10} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="payload-action-btn delete"
+                                      title="Delete"
+                                      onClick={e => handleDeletePayload(payload.id, e)}
+                                    >
+                                      <Trash2 size={10} />
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <JsonEditor
                 value={renderVars}
-                onChange={e => setRenderVars(e.target.value)}
-                spellCheck={false}
+                onChange={setRenderVars}
                 placeholder={'{\n  "name": "Alice"\n}'}
               />
             </div>
@@ -180,7 +460,7 @@ export default function VersionEditorPage() {
               ) : renderOutput ? (
                 <p className="render-output">{renderOutput}</p>
               ) : (
-                <p className="render-placeholder">Output will appear here after running.</p>
+                <p className="render-placeholder">Output will appear here after rendering.</p>
               )}
             </div>
           </div>

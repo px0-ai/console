@@ -136,8 +136,15 @@ export const api = {
   },
 
   prompts: {
-    list: (teamID: string) =>
-      get<{ prompts: Prompt[] }>(`/v1/teams/${teamID}/prompts`),
+    list: (teamID: string, params?: { tag?: string; team_id?: string; archive?: boolean | string; all?: boolean }) => {
+      const q = new URLSearchParams()
+      if (params?.tag) q.set('tag', params.tag)
+      if (params?.team_id) q.set('team_id', params.team_id)
+      if (params?.archive !== undefined) q.set('archive', String(params.archive))
+      if (params?.all !== undefined) q.set('all', String(params.all))
+      const queryStr = q.toString()
+      return get<{ prompts: Prompt[] }>(`/v1/teams/${teamID}/prompts${queryStr ? `?${queryStr}` : ''}`)
+    },
     create: (teamID: string, name: string, description?: string) =>
       post<{ prompt: Prompt }>(`/v1/teams/${teamID}/prompts`, { name, description }),
     get: (id: string) =>
@@ -159,6 +166,8 @@ export const api = {
       put<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}`, { template }),
     publish: (promptID: string, version: number) =>
       post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/publish`),
+    delete: (promptID: string, version: number) =>
+      del<void>(`/v1/prompts/${promptID}/versions/${version}`),
     render: (promptID: string, version: number, variables: Record<string, unknown>) =>
       post<RenderResponse>(`/v1/prompts/${promptID}/versions/${version}/render`, { variables }),
   },

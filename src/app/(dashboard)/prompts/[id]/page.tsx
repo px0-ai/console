@@ -57,6 +57,17 @@ export default function PromptDetailPage() {
     }
   }
 
+  async function handleDeleteVersion(versionNum: number) {
+    if (!confirm(`Are you sure you want to delete draft version v${versionNum}?`)) return
+    try {
+      await api.versions.delete(id, versionNum)
+      const v = await api.versions.list(id)
+      setVersions(v.versions)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete version')
+    }
+  }
+
   if (loading) return <div className="table-empty">Loading...</div>
   if (!prompt) return null
 
@@ -70,7 +81,14 @@ export default function PromptDetailPage() {
 
       <div className="prompt-meta-card">
         <div className="prompt-meta-info">
-          <p className="prompt-meta-name">{prompt.name}</p>
+          <p className="prompt-meta-name" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {prompt.name}
+            {prompt.slug && (
+              <span className="td-mono" style={{ fontSize: '11px', color: 'var(--txt-muted)', background: 'var(--code-bg)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'normal', border: '1px solid var(--bdr)', letterSpacing: '0.02em' }}>
+                {prompt.slug}
+              </span>
+            )}
+          </p>
           {prompt.description && (
             <p className="prompt-meta-desc">{prompt.description}</p>
           )}
@@ -87,8 +105,13 @@ export default function PromptDetailPage() {
       </div>
 
       <div className="table-wrap">
-        <div className="table-toolbar">
-          <span className="table-title">Versions</span>
+        <div className="table-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="table-title">Versions</span>
+            <span style={{ fontSize: '11px', color: 'var(--txt-muted)', background: 'var(--code-bg)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--bdr)' }}>
+              Publishing a version makes it read-only
+            </span>
+          </div>
           <span className="td-mono">{versions.length} total</span>
         </div>
 
@@ -99,7 +122,7 @@ export default function PromptDetailPage() {
               <th>Status</th>
               <th>Created</th>
               <th>Published</th>
-              <th style={{ width: 100 }}></th>
+              <th style={{ width: 140 }}></th>
             </tr>
           </thead>
           <tbody>
@@ -108,20 +131,40 @@ export default function PromptDetailPage() {
             ) : (
               [...versions].reverse().map(v => (
                 <tr key={v.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>v{v.version}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      v{v.version}
+                      {v.tags && v.tags.map(tag => (
+                        <span key={tag} className="tag-badge" style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: 'var(--code-bg)', color: 'var(--txt-muted)', border: '1px solid var(--bdr)', fontWeight: 'normal' }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td><StatusBadge status={v.status} /></td>
                   <td className="td-mono">{fmtDate(v.created_at)}</td>
                   <td className="td-mono">
                     {v.published_at ? fmtDate(v.published_at) : <span style={{ color: 'var(--dim)' }}>—</span>}
                   </td>
                   <td>
-                    <Link
-                      href={`/prompts/${id}/versions/${v.version}`}
-                      className="btn btn-ghost"
-                      style={{ height: 28, padding: '0 10px', fontSize: '12px' }}
-                    >
-                      Open
-                    </Link>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                      <Link
+                        href={`/prompts/${id}/versions/${v.version}`}
+                        className="btn btn-ghost"
+                        style={{ height: 28, padding: '0 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        Open
+                      </Link>
+                      {v.status === 'draft' && canEdit && (
+                        <button
+                          onClick={() => handleDeleteVersion(v.version)}
+                          className="btn btn-ghost"
+                          style={{ height: 28, padding: '0 10px', fontSize: '12px', color: '#f87171', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.15)' }}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))

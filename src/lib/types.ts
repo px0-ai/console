@@ -44,6 +44,7 @@ export interface TeamMember {
 
 export interface Prompt {
   id: string
+  slug?: string
   name: string
   description: string
   created_at: string
@@ -58,6 +59,7 @@ export interface PromptVersion {
   version: number
   template: string
   status: VersionStatus
+  tags?: string[]
   created_at: string
   published_at: string | null
 }

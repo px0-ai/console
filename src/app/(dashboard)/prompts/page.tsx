@@ -78,17 +78,57 @@ export default function PromptsPage() {
     }
   }, [showCreate, editableTeams, team])
 
+  const [filterTeamId, setFilterTeamId] = useState('')
+  const [filterTag, setFilterTag] = useState('')
+  const [debouncedTag, setDebouncedTag] = useState('')
+  const [filterArchive, setFilterArchive] = useState('active') // active, archived, all
+
+  useEffect(() => {
+    if (team) {
+      setFilterTeamId(team.id)
+    }
+  }, [team])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTag(filterTag)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [filterTag])
+
   async function load() {
-    if (!team) return
+    if (!filterTeamId) return
     setLoading(true)
+    const params: { tag?: string; team_id?: string; archive?: boolean | string; all?: boolean } = {}
+    
+    if (debouncedTag.trim()) {
+      params.tag = debouncedTag.trim()
+    }
+    
+    if (filterArchive === 'archived') {
+      params.archive = true
+    } else if (filterArchive === 'active') {
+      params.archive = false
+    } else if (filterArchive === 'all') {
+      params.all = true
+    }
+
     try {
-      const r = await api.prompts.list(team.id)
+      const r = await api.prompts.list(filterTeamId, params)
       setPrompts(r.prompts)
     } catch {}
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [team]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [filterTeamId, debouncedTag, filterArchive]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleResetFilters() {
+    setFilterTag('')
+    setFilterArchive('active')
+    if (team) {
+      setFilterTeamId(team.id)
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -155,6 +195,60 @@ export default function PromptsPage() {
                 New Prompt
               </button>
             )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px', padding: '12px 16px', borderBottom: '1px solid var(--bdr)', alignItems: 'center', background: 'rgba(0,0,0,0.12)', flexWrap: 'wrap' }}>
+            {/* Filter by Team */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>TEAM</span>
+              <select
+                className="select"
+                style={{ height: '28px', padding: '2px 8px', fontSize: '12px', minWidth: '130px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
+                value={filterTeamId}
+                onChange={e => setFilterTeamId(e.target.value)}
+              >
+                {authTeams?.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter by Tag */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>TAG</span>
+              <input
+                type="text"
+                placeholder="tag name..."
+                className="input"
+                style={{ height: '28px', padding: '4px 10px', fontSize: '12px', width: '130px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
+                value={filterTag}
+                onChange={e => setFilterTag(e.target.value)}
+              />
+            </div>
+
+            {/* Filter by Archive Status */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--txt-muted)', fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.05em' }}>STATUS</span>
+              <select
+                className="select"
+                style={{ height: '28px', padding: '2px 8px', fontSize: '12px', background: 'var(--bg)', border: '1px solid var(--bdr)', borderRadius: 'var(--r)', color: 'var(--txt)', outline: 'none' }}
+                value={filterArchive}
+                onChange={e => setFilterArchive(e.target.value)}
+              >
+                <option value="active">Active Only</option>
+                <option value="archived">Archived Only</option>
+                <option value="all">All (Incl. Archived)</option>
+              </select>
+            </div>
+
+            {/* Reset Filters / Reload button */}
+            <button
+              className="btn btn-ghost"
+              style={{ height: '28px', padding: '0 10px', fontSize: '12px', marginLeft: 'auto', border: '1px solid var(--bdr)' }}
+              onClick={handleResetFilters}
+            >
+              Reset
+            </button>
           </div>
 
           {loading ? (
@@ -256,6 +350,9 @@ export default function PromptsPage() {
                 required
                 autoFocus
               />
+              <span className="form-hint" style={{ marginTop: 4, display: 'block', color: 'var(--txt-muted)' }}>
+                The prompt name cannot be edited after creation. This is used as the unique identifier/slug to invoke and render the prompt via the API.
+              </span>
             </div>
             <div className="form-field" style={{ marginTop: 16 }}>
               <label className="form-label" htmlFor="p-desc">Description</label>
