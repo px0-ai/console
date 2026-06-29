@@ -1,6 +1,7 @@
 import type {
   User, Team, Prompt, PromptVersion, APIKey, APIKeyCreated,
   RenderResponse, TeamMember, Organization, OrganizationWithRole, TeamJoinRequest, PromptTag,
+  InboxItem, PromptPayload,
 } from './types'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
@@ -79,6 +80,16 @@ export const api = {
     return () => {
       listeners.delete(cb)
     }
+  },
+
+  system: {
+    health: () => get<{ status: string }>('/v1/health'),
+  },
+
+  inbox: {
+    get: () => get<{ inbox: InboxItem[] }>('/v1/me/inbox'),
+    resolve: (id: string, status: 'approved' | 'rejected') =>
+      put<TeamJoinRequest>(`/v1/join-requests/${id}`, { status }),
   },
 
   auth: {
@@ -176,8 +187,10 @@ export const api = {
       post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions`, { template }),
     update: (promptID: string, version: number, template: string) =>
       put<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}`, { template }),
-    publish: (promptID: string, version: number) =>
-      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/publish`),
+    setTag: (promptID: string, version: number | string, tag: string) =>
+      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/tags`, { tag }),
+    removeTag: (promptID: string, tag: string) =>
+      del<void>(`/v1/prompts/${promptID}/tags/${tag}`),
     promote: (promptID: string, version: number) =>
       post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/promote`),
     demote: (promptID: string, version: number) =>
@@ -197,5 +210,16 @@ export const api = {
       post<APIKeyCreated>('/v1/api-keys', { name, org_id, operation, ...(team_ids ? { team_ids } : {}) }),
     delete: (id: string) =>
       del<void>(`/v1/api-keys/${id}`),
+  },
+
+  payloads: {
+    list: (promptID: string) =>
+      get<{ payloads: PromptPayload[] }>(`/v1/prompts/${promptID}/payloads`),
+    create: (promptID: string, variables: Record<string, unknown>) =>
+      post<{ payload: PromptPayload }>(`/v1/prompts/${promptID}/payloads`, { variables }),
+    delete: (promptID: string, payloadID: string) =>
+      del<void>(`/v1/prompts/${promptID}/payloads/${payloadID}`),
+    update: (promptID: string, payloadID: string, name: string, variables: Record<string, unknown>) =>
+      put<{ payload: PromptPayload }>(`/v1/prompts/${promptID}/payloads/${payloadID}`, { name, variables }),
   },
 }

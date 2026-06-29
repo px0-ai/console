@@ -50,22 +50,9 @@ export default function VersionEditorPage() {
   const [newPayloadName, setNewPayloadName] = useState('')
   const [editingPayloadId, setEditingPayloadId] = useState<string | null>(null)
   const [editingPayloadName, setEditingPayloadName] = useState('')
+  const [newTagInput, setNewTagInput] = useState('')
 
   const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const key = `px0-prompt-payloads:${id}`
-      const stored = localStorage.getItem(key)
-      if (stored) {
-        try {
-          setSavedPayloads(JSON.parse(stored))
-        } catch (e) {
-          console.error('Failed to parse saved payloads', e)
-        }
-      }
-    }
-  }, [id])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -98,31 +85,70 @@ export default function VersionEditorPage() {
     }
   }, [prompt, ver, version])
 
-  const savePayloadsList = (list: SavedPayload[]) => {
-    setSavedPayloads(list)
-    localStorage.setItem(`px0-prompt-payloads:${id}`, JSON.stringify(list))
+  const handleAddTag = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = newTagInput.trim()
+    if (!trimmed || !ver) return
+
+    api.versions.setTag(id, ver.version, trimmed)
+      .then((res) => {
+        setVer(res.version)
+        setNewTagInput('')
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Failed to add tag')
+      })
+  }
+
+  const handleRemoveTag = (tag: string) => {
+    if (!confirm(`Are you sure you want to remove the tag "${tag}"?`)) return
+    api.versions.removeTag(id, tag)
+      .then(() => {
+        setVer((prev) => {
+          if (!prev) return null
+          return {
+            ...prev,
+            tags: (prev.tags || []).filter((t) => t !== tag)
+          }
+        })
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Failed to remove tag')
+      })
   }
 
   const handleSavePayload = () => {
-    if (!newPayloadName.trim()) return
+    let parsedVars = {}
     try {
-      JSON.parse(renderVars)
+      parsedVars = JSON.parse(renderVars)
     } catch {
       alert('Cannot save invalid JSON as a payload.')
       return
     }
 
-    const newPayload: SavedPayload = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: newPayloadName.trim(),
-      variables: renderVars,
-      updatedAt: Date.now(),
-    }
-
-    const updated = [...savedPayloads, newPayload]
-    savePayloadsList(updated)
-    setNewPayloadName('')
-    setIsSavingCurrent(false)
+    api.payloads.create(id, parsedVars)
+      .then((res) => {
+        const payload = res.payload
+        if (newPayloadName.trim()) {
+          return api.payloads.update(id, payload.id, newPayloadName.trim(), parsedVars)
+        }
+        return { payload }
+      })
+      .then((res) => {
+        const item = res.payload
+        const mapped: SavedPayload = {
+          id: item.id,
+          name: item.name || 'Unnamed Payload',
+          variables: JSON.stringify(item.variables, null, 2),
+          updatedAt: new Date(item.updated_at).getTime()
+        }
+        setSavedPayloads(prev => [...prev, mapped])
+        setNewPayloadName('')
+        setIsSavingCurrent(false)
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Failed to save payload')
+      })
   }
 
   const handleLoadPayload = (payload: SavedPayload) => {
@@ -140,15 +166,28 @@ export default function VersionEditorPage() {
     e.stopPropagation()
     if (!editingPayloadName.trim() || !editingPayloadId) return
 
-    const updated = savedPayloads.map(p => {
-      if (p.id === editingPayloadId) {
-        return { ...p, name: editingPayloadName.trim(), updatedAt: Date.now() }
-      }
-      return p
-    })
-    savePayloadsList(updated)
-    setEditingPayloadId(null)
-    setEditingPayloadName('')
+    const target = savedPayloads.find(p => p.id === editingPayloadId)
+    if (!target) return
+
+    api.payloads.update(id, editingPayloadId, editingPayloadName.trim(), JSON.parse(target.variables))
+      .then((res) => {
+        const item = res.payload
+        setSavedPayloads(prev => prev.map(p => {
+          if (p.id === editingPayloadId) {
+            return {
+              ...p,
+              name: item.name || 'Unnamed Payload',
+              updatedAt: new Date(item.updated_at).getTime()
+            }
+          }
+          return p
+        }))
+        setEditingPayloadId(null)
+        setEditingPayloadName('')
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Rename failed')
+      })
   }
 
   const handleCancelRename = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -160,19 +199,32 @@ export default function VersionEditorPage() {
   const handleDeletePayload = (payloadId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm('Are you sure you want to delete this saved payload?')) return
-    const updated = savedPayloads.filter(p => p.id !== payloadId)
-    savePayloadsList(updated)
+    api.payloads.delete(id, payloadId)
+      .then(() => {
+        setSavedPayloads(prev => prev.filter(p => p.id !== payloadId))
+      })
+      .catch((err) => {
+        alert(err instanceof Error ? err.message : 'Delete failed')
+      })
   }
 
   useEffect(() => {
     Promise.all([
       api.prompts.get(id),
       api.versions.get(id, vNum),
+      api.payloads.list(id),
     ])
-      .then(([p, v]) => {
+      .then(([p, v, pay]) => {
         setPrompt(p.prompt)
         setVer(v.version)
         setTemplate(v.version.template)
+        const mapped = (pay.payloads || []).map(item => ({
+          id: item.id,
+          name: item.name || 'Unnamed Payload',
+          variables: JSON.stringify(item.variables, null, 2),
+          updatedAt: new Date(item.updated_at).getTime()
+        }))
+        setSavedPayloads(mapped)
       })
       .catch(() => router.replace(`/prompts/${id}`))
       .finally(() => setLoading(false))
@@ -294,7 +346,77 @@ export default function VersionEditorPage() {
 
       <div className="version-header">
         <span className="version-title">v{ver.version}</span>
-        <StatusBadge status={ver.status} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <StatusBadge status={ver.status} />
+
+          {/* Tags list */}
+          {ver.tags && ver.tags.map(tag => (
+            <span
+              key={tag}
+              className="badge-tag"
+              style={{
+                fontSize: '11px',
+                fontFamily: 'var(--font-mono)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                background: 'rgba(234, 179, 8, 0.05)',
+                border: '1px solid var(--bdr)',
+                color: 'var(--txt-muted)',
+              }}
+            >
+              {tag}
+              {canEdit && (
+                <button
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    color: 'var(--dim)',
+                  }}
+                  onClick={() => handleRemoveTag(tag)}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--dim)')}
+                  title={`Remove tag ${tag}`}
+                >
+                  <X size={10} />
+                </button>
+              )}
+            </span>
+          ))}
+
+          {/* Add Tag form */}
+          {canEdit && (
+            <form
+              onSubmit={handleAddTag}
+              style={{ display: 'inline-flex', alignItems: 'center' }}
+            >
+              <input
+                type="text"
+                placeholder="+ tag"
+                value={newTagInput}
+                onChange={(e) => setNewTagInput(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                style={{
+                  width: '64px',
+                  height: '22px',
+                  padding: '0 6px',
+                  fontSize: '11px',
+                  background: 'var(--bg)',
+                  border: '1px dashed var(--bdr)',
+                  borderRadius: '4px',
+                  outline: 'none',
+                  fontFamily: 'var(--font-mono)',
+                }}
+                title="Only lowercase alphanumeric, dots, dashes, underscores"
+              />
+            </form>
+          )}
+        </div>
         {saveMsg && <span className="inline-error" style={{ color: saveMsg === 'Saved.' ? '#4ade80' : undefined }}>{saveMsg}</span>}
         {actionMsg && <span className="inline-error" style={{ color: actionMsg.endsWith('.') ? '#4ade80' : undefined }}>{actionMsg}</span>}
         <div className="version-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

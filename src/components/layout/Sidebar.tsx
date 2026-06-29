@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -9,6 +10,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Inbox,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ThemeToggle } from './ThemeToggle'
@@ -19,6 +21,7 @@ const NAV = [
   { label: 'Prompts',   href: '/prompts',   icon: FileText },
   { label: 'API Keys',  href: '/api-keys',  icon: Key },
   { label: 'Teams',     href: '/teams',     icon: Users },
+  { label: 'Inbox',     href: '/inbox',     icon: Inbox },
   { label: 'Settings',  href: '/settings',  icon: Settings },
 ]
 
@@ -26,6 +29,30 @@ export function Sidebar() {
   const pathname = usePathname()
   const { organizations, logout } = useAuth()
   const org = organizations.length > 0 ? organizations[0] : null
+  const [health, setHealth] = useState<'checking' | 'ok' | 'error'>('checking')
+
+  useEffect(() => {
+    let active = true
+    function check() {
+      api.system.health()
+        .then((res) => {
+          if (active) {
+            setHealth(res.status === 'OK' ? 'ok' : 'error')
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setHealth('error')
+          }
+        })
+    }
+    check()
+    const timer = setInterval(check, 30000)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }, [])
 
   function handleLogout() {
     api.auth.logout().catch(() => {})
@@ -80,6 +107,43 @@ export function Sidebar() {
             </Link>
           ))}
         </nav>
+      </div>
+
+      <div
+        style={{
+          padding: '8px 20px',
+          borderTop: '1px solid var(--bdr)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '11px',
+          fontFamily: 'var(--font-mono)',
+          color: 'var(--txt-muted)',
+        }}
+      >
+        <span
+          style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background:
+              health === 'ok'
+                ? '#10b981'
+                : health === 'error'
+                ? '#ef4444'
+                : '#eab308',
+            boxShadow:
+              health === 'ok'
+                ? '0 0 8px #10b981'
+                : health === 'error'
+                ? '0 0 8px #ef4444'
+                : '0 0 8px #eab308',
+            display: 'inline-block',
+          }}
+        ></span>
+        <span>
+          {health === 'ok' ? 'API: Online' : health === 'error' ? 'API: Offline' : 'API: Checking...'}
+        </span>
       </div>
 
       <div className="sidebar-footer">

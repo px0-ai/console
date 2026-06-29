@@ -94,3 +94,23 @@ export interface PromptTag {
   tag: string
   version: number
 }
+
+export interface InboxItem {
+  id: string
+  team_id: string
+  team_name: string
+  user_id: string
+  user_email: string
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
+  updated_at: string
+}
+
+export interface PromptPayload {
+  id: string
+  prompt_id: string
+  name?: string | null
+  variables: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
