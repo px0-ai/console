@@ -350,7 +350,24 @@ export default function VersionEditorPage() {
         {/* Template panel */}
         <div className="editor-panel">
           <div className="editor-panel-header">
-            <span className="editor-panel-title">Template</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="editor-panel-title">Template</span>
+              <span style={{ color: 'var(--txt-muted)', fontSize: '11px' }}>•</span>
+              <a
+                href="https://docs.px0.ai/template-syntax"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover-underline"
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--violet)',
+                  textDecoration: 'none',
+                  fontWeight: 500
+                }}
+              >
+                Template Syntax Guide
+              </a>
+            </div>
             {(!isDraft || !canEdit) && (
               <span className="td-mono" style={{ fontSize: '11px' }}>read-only</span>
             )}
