@@ -2,6 +2,7 @@ import type { VersionStatus } from '@/lib/types'
 
 const MAP: Record<VersionStatus, string> = {
   draft:    'status-badge status-draft',
+  stable:   'status-badge status-stable',
   live:     'status-badge status-live',
   archived: 'status-badge status-archived',
 }

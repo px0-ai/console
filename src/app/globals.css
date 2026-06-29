@@ -344,6 +344,10 @@ tr:hover td { background: var(--bg); }
   color: var(--txt-muted);
 }
 
+.hover-underline:hover {
+  text-decoration: underline;
+}
+
 /* ── Badges ─────────────────────────────────────────────────── */
 .badge-tag {
   display: inline-flex;
@@ -369,6 +373,7 @@ tr:hover td { background: var(--bg); }
 }
 
 .status-draft    { color: var(--txt-muted); border-color: var(--bdr-hi); background: var(--bg); }
+.status-stable   { color: var(--violet); border-color: rgba(129,140,248,.25); background: rgba(129,140,248,.08); }
 .status-live     { color: #4ade80; border-color: rgba(74,222,128,.25); background: rgba(74,222,128,.08); }
 .status-archived { color: var(--dim); border-color: var(--bdr); background: transparent; }
 
@@ -468,6 +473,9 @@ textarea.input {
 
 .btn-danger { background: transparent; color: #ef4444; border-color: rgba(239,68,68,.3); }
 .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.5); }
+
+.btn-success { background: transparent; color: #4ade80; border-color: rgba(74,222,128,.3); }
+.btn-success:hover:not(:disabled) { background: rgba(74,222,128,.08); border-color: rgba(74,222,128,.5); }
 
 .btn-icon {
   display: inline-flex;

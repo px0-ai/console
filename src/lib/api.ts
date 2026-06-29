@@ -174,6 +174,12 @@ export const api = {
       put<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}`, { template }),
     publish: (promptID: string, version: number) =>
       post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/publish`),
+    promote: (promptID: string, version: number) =>
+      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/promote`),
+    demote: (promptID: string, version: number) =>
+      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/demote`),
+    archive: (promptID: string, version: number) =>
+      post<{ version: PromptVersion }>(`/v1/prompts/${promptID}/versions/${version}/archive`),
     delete: (promptID: string, version: number) =>
       del<void>(`/v1/prompts/${promptID}/versions/${version}`),
     render: (promptID: string, version: number, variables: Record<string, unknown>) =>

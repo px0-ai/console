@@ -52,7 +52,7 @@ export interface Prompt {
   updated_at: string
 }
 
-export type VersionStatus = 'draft' | 'live' | 'archived'
+export type VersionStatus = 'draft' | 'stable' | 'live' | 'archived'
 
 export interface PromptVersion {
   id: string

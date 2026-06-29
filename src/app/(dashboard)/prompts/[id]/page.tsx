@@ -166,9 +166,6 @@ export default function PromptDetailPage() {
         <div className="table-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span className="table-title">Versions</span>
-            <span style={{ fontSize: '11px', color: 'var(--txt-muted)', background: 'var(--code-bg)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--bdr)' }}>
-              Publishing a version makes it read-only
-            </span>
           </div>
           <span className="td-mono">
             {(statusFilter || tagFilter) ? `${versions.length} matching` : `${versions.length} total`}
@@ -188,6 +185,7 @@ export default function PromptDetailPage() {
             >
               <option value="">All Statuses</option>
               <option value="draft">Draft</option>
+              <option value="stable">Stable</option>
               <option value="live">Live</option>
               <option value="archived">Archived</option>
             </select>
@@ -250,7 +248,13 @@ export default function PromptDetailPage() {
                 <tr key={v.id}>
                   <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      v{v.version}
+                      <Link
+                        href={`/prompts/${id}/versions/${v.version}`}
+                        style={{ color: 'var(--txt)', textDecoration: 'none' }}
+                        className="hover-underline"
+                      >
+                        v{v.version}
+                      </Link>
                       {v.tags && v.tags.map(tag => (
                         <span key={tag} className="tag-badge" style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: 'var(--code-bg)', color: 'var(--txt-muted)', border: '1px solid var(--bdr)', fontWeight: 'normal' }}>
                           {tag}
@@ -265,13 +269,6 @@ export default function PromptDetailPage() {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                      <Link
-                        href={`/prompts/${id}/versions/${v.version}`}
-                        className="btn btn-ghost"
-                        style={{ height: 28, padding: '0 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        Open
-                      </Link>
                       {v.status === 'draft' && canEdit && (
                         <button
                           onClick={() => handleDeleteVersion(v.version)}

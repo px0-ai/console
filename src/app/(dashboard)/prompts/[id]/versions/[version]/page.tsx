@@ -30,8 +30,8 @@ export default function VersionEditorPage() {
 
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
-  const [publishing, setPublishing] = useState(false)
-  const [publishMsg, setPublishMsg] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionMsg, setActionMsg] = useState('')
 
   const [renderVars, setRenderVars] = useState('{}')
   const [renderOutput, setRenderOutput] = useState('')
@@ -39,6 +39,9 @@ export default function VersionEditorPage() {
   const [rendering, setRendering] = useState(false)
 
   const isDraft = ver?.status === 'draft'
+  const isStable = ver?.status === 'stable'
+  const isLive = ver?.status === 'live'
+  const isArchived = ver?.status === 'archived'
   const canEdit = isOrgAdmin || teamRole === 'admin' || teamRole === 'editor'
 
   const [savedPayloads, setSavedPayloads] = useState<SavedPayload[]>([])
@@ -172,19 +175,57 @@ export default function VersionEditorPage() {
     }
   }
 
-  async function handlePublish() {
-    if (!canEdit) return
-    if (!confirm('Publish this version? The current live version will be archived.')) return
-    setPublishing(true)
-    setPublishMsg('')
+  async function handlePromote() {
+    if (!canEdit || !ver) return
+    const confirmMsg = isDraft
+      ? 'Promote this version to Stable? It will become read-only.'
+      : 'Promote this version to Live? The current live version will be demoted to stable.'
+    if (!confirm(confirmMsg)) return
+
+    setActionLoading(true)
+    setActionMsg('')
     try {
-      const r = await api.versions.publish(id, vNum)
+      const r = await api.versions.promote(id, vNum)
       setVer(r.version)
-      setPublishMsg('Published.')
+      setActionMsg(isDraft ? 'Promoted to Stable.' : 'Promoted to Live.')
     } catch (err) {
-      setPublishMsg(err instanceof Error ? err.message : 'Publish failed')
+      setActionMsg(err instanceof Error ? err.message : 'Promotion failed')
     } finally {
-      setPublishing(false)
+      setActionLoading(false)
+    }
+  }
+
+  async function handleDemote() {
+    if (!canEdit || !ver) return
+    if (!confirm('Demote this live version to Stable?')) return
+
+    setActionLoading(true)
+    setActionMsg('')
+    try {
+      const r = await api.versions.demote(id, vNum)
+      setVer(r.version)
+      setActionMsg('Demoted to Stable.')
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Demotion failed')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function handleArchiveVersion() {
+    if (!canEdit || !ver) return
+    if (!confirm('Archive this version?')) return
+
+    setActionLoading(true)
+    setActionMsg('')
+    try {
+      const r = await api.versions.archive(id, vNum)
+      setVer(r.version)
+      setActionMsg('Archived.')
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Archiving failed')
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -221,17 +262,42 @@ export default function VersionEditorPage() {
         <span className="version-title">v{ver.version}</span>
         <StatusBadge status={ver.status} />
         {saveMsg && <span className="inline-error" style={{ color: saveMsg === 'Saved.' ? '#4ade80' : undefined }}>{saveMsg}</span>}
-        {publishMsg && <span className="inline-error" style={{ color: publishMsg === 'Published.' ? '#4ade80' : undefined }}>{publishMsg}</span>}
-        <div className="version-actions">
-          {isDraft && canEdit && (
+        {actionMsg && <span className="inline-error" style={{ color: actionMsg.endsWith('.') ? '#4ade80' : undefined }}>{actionMsg}</span>}
+        <div className="version-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {canEdit && !isArchived && (
             <>
-              <button className="btn btn-ghost" onClick={handleSave} disabled={saving}>
-                <Save size={13} />
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-              <button className="btn btn-primary" onClick={handlePublish} disabled={publishing}>
-                <Upload size={13} />
-                {publishing ? 'Publishing...' : 'Publish'}
+              {isDraft && (
+                <>
+                  <span style={{ fontSize: '11px', color: 'var(--txt-muted)', marginRight: '4px' }}>
+                    Promoting a version makes it read-only
+                  </span>
+                  <button className="btn btn-ghost" onClick={handleSave} disabled={saving || actionLoading} title="Save this prompt">
+                    <Save size={13} />
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button className="btn btn-primary" onClick={handlePromote} disabled={saving || actionLoading}>
+                    <Upload size={13} />
+                    {actionLoading ? 'Promoting...' : 'Promote to Stable'}
+                  </button>
+                </>
+              )}
+              {isStable && (
+                <>
+                  <button className="btn btn-primary" onClick={handlePromote} disabled={actionLoading}>
+                    <Upload size={13} />
+                    {actionLoading ? 'Promoting...' : 'Promote to Live'}
+                  </button>
+                </>
+              )}
+              {isLive && (
+                <>
+                  <button className="btn btn-ghost" onClick={handleDemote} disabled={actionLoading}>
+                    Demote to Stable
+                  </button>
+                </>
+              )}
+              <button className="btn btn-danger" onClick={handleArchiveVersion} disabled={saving || actionLoading} style={{ height: 38 }}>
+                Archive
               </button>
             </>
           )}
@@ -243,9 +309,7 @@ export default function VersionEditorPage() {
         <div className="editor-panel">
           <div className="editor-panel-header">
             <span className="editor-panel-title">Template</span>
-            {isDraft && canEdit ? (
-              <span style={{ fontSize: '11px', color: 'var(--txt-muted)' }}>Publishing makes it read-only</span>
-            ) : (
+            {(!isDraft || !canEdit) && (
               <span className="td-mono" style={{ fontSize: '11px' }}>read-only</span>
             )}
           </div>
@@ -263,7 +327,7 @@ export default function VersionEditorPage() {
           <div className="editor-panel-header">
             <span className="editor-panel-title">Test Render</span>
             <button
-              className="btn btn-ghost"
+              className="btn btn-success"
               style={{ height: 28, padding: '0 10px', fontSize: '12px' }}
               onClick={handleRender}
               disabled={rendering}
