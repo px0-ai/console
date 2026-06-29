@@ -27,6 +27,7 @@ export default function PromptDetailPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [tagFilter, setTagFilter] = useState<string>('')
+  const [filtersInitialized, setFiltersInitialized] = useState(false)
 
   const [showNewVersion, setShowNewVersion] = useState(false)
   const [newTemplate, setNewTemplate] = useState('')
@@ -49,6 +50,36 @@ export default function PromptDetailPage() {
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('status') || ''
+    const tag = params.get('tag') || ''
+    setStatusFilter(status)
+    setTagFilter(tag)
+    setFiltersInitialized(true)
+  }, [])
+
+  useEffect(() => {
+    if (!filtersInitialized) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (statusFilter) {
+      params.set('status', statusFilter)
+    } else {
+      params.delete('status')
+    }
+    if (tagFilter) {
+      params.set('tag', tagFilter)
+    } else {
+      params.delete('tag')
+    }
+    const newSearch = params.toString()
+    const newUrl = `${window.location.pathname}${newSearch ? `?${newSearch}` : ''}`
+    window.history.replaceState(null, '', newUrl)
+  }, [statusFilter, tagFilter, filtersInitialized])
+
+  useEffect(() => {
+    if (!filtersInitialized) return
+
     setVersionsLoading(true)
     api.versions.list(id, {
       status: statusFilter || undefined,
@@ -61,7 +92,7 @@ export default function PromptDetailPage() {
         console.error('Failed to load versions', err)
       })
       .finally(() => setVersionsLoading(false))
-  }, [id, statusFilter, tagFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, statusFilter, tagFilter, filtersInitialized]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCreateVersion(e: React.FormEvent) {
     e.preventDefault()
