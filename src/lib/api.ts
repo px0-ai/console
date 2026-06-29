@@ -12,6 +12,9 @@ export class ApiError extends Error {
   }
 }
 
+export type ErrorListener = (status: number, error: ApiError) => void
+const listeners = new Set<ErrorListener>()
+
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   if (typeof window !== 'undefined') {
@@ -37,7 +40,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       msg = (await res.text()) || msg
     }
-    throw new ApiError(res.status, msg)
+    const err = new ApiError(res.status, msg)
+    listeners.forEach((listener) => {
+      try {
+        listener(res.status, err)
+      } catch (e) {
+        console.error('Error listener failed:', e)
+      }
+    })
+    throw err
   }
 
   return res.json() as Promise<T>
@@ -63,6 +74,13 @@ function del<T>(path: string) {
 }
 
 export const api = {
+  addErrorListener: (cb: ErrorListener) => {
+    listeners.add(cb)
+    return () => {
+      listeners.delete(cb)
+    }
+  },
+
   auth: {
     register: (email: string, password: string, team_id?: string) =>
       post<{ user: User }>('/v1/auth/register', { email, password, ...(team_id ? { team_id } : {}) }),

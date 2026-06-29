@@ -5,6 +5,7 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
   type ReactNode,
 } from 'react'
 import type { User, Team, OrganizationWithRole, TeamMember } from '@/lib/types'
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u)
   }
 
-  function logout() {
+  const logout = useCallback(() => {
     localStorage.removeItem('px0-token')
     localStorage.removeItem('px0-user')
     localStorage.removeItem('px0-team')
@@ -145,7 +146,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTeamRole(null)
     setOrganizations([])
     setTeams([])
-  }
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = api.addErrorListener((status) => {
+      if (status === 401) {
+        logout()
+      }
+    })
+    return () => {
+      unsubscribe()
+    }
+  }, [logout])
 
   function setTeam(tm: Team) {
     setTeamState(tm)
