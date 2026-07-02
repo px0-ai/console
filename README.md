@@ -56,3 +56,8 @@ src/
 - [Tailwind CSS v3](https://tailwindcss.com) - utility-first CSS framework
 - [Lucide React](https://lucide.dev) - icon library
 - `src/lib/api.ts` - typed fetch wrapper around the px0 Go API
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
